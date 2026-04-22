@@ -1,0 +1,220 @@
+// src/renderer/pages/RelatoriosPage.jsx
+import React, { useState, useEffect } from 'react';
+import { api, useToast } from '../App';
+import Icon from '../components/Icon';
+
+const fmt = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
+const today = () => new Date().toISOString().slice(0, 10);
+const firstDayOfMonth = () => { const d = new Date(); d.setDate(1); return d.toISOString().slice(0, 10); };
+
+export default function RelatoriosPage() {
+  const toast = useToast();
+  const [relData, setRelData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState('vendas');
+  const [periodo, setPeriodo] = useState({ inicio: firstDayOfMonth(), fim: today() });
+
+  useEffect(() => {
+    api.relatorios.dashboard().then(res => {
+      if (res.success) setRelData(res.data);
+      setLoading(false);
+    });
+  }, []);
+
+  const handleExportExcel = async () => {
+    const res = await api.relatorios.exportExcel({ tipo: tab, ...periodo });
+    if (res.success) toast('Exportado em Excel!', 'success');
+    else toast('Erro ou cancelado', 'info');
+  };
+
+  const handleExportPDF = async () => {
+    const res = await api.relatorios.exportPDF({ tipo: tab, ...periodo });
+    if (res.success) toast('Exportado em PDF!', 'success');
+    else toast('Erro ou cancelado', 'info');
+  };
+
+  const setQuickPeriod = (tipo) => {
+    const now = new Date();
+    if (tipo === 'hoje') { const t = today(); setPeriodo({ inicio: t, fim: t }); }
+    else if (tipo === 'mes') {
+      setPeriodo({ inicio: firstDayOfMonth(), fim: today() });
+    } else if (tipo === '3m') {
+      const d = new Date(); d.setMonth(d.getMonth() - 3);
+      setPeriodo({ inicio: d.toISOString().slice(0,10), fim: today() });
+    } else if (tipo === 'ano') {
+      setPeriodo({ inicio: `${now.getFullYear()}-01-01`, fim: today() });
+    }
+  };
+
+  const maxVenda = relData?.vendasMes ? Math.max(...relData.vendasMes.map(v => v.valor), 1) : 1;
+  const totalReceita = relData?.vendasMes?.reduce((s, m) => s + m.valor, 0) || 0;
+  const totalServicos = relData?.servicosTop?.reduce((s, t) => s + t.total, 0) || 0;
+  const ticketMedio = relData?.leadsConversao?.fechados > 0 ? totalReceita / relData.leadsConversao.fechados : 0;
+
+  return (
+    <div>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Relatórios</h1>
+          <p className="page-subtitle">Análises gerenciais e exportações</p>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-secondary" onClick={handleExportExcel}>
+            <Icon name="download" size={14} /> Excel
+          </button>
+          <button className="btn btn-secondary" onClick={handleExportPDF}>
+            <Icon name="download" size={14} /> PDF
+          </button>
+        </div>
+      </div>
+
+      {/* Período */}
+      <div className="card" style={{ marginBottom: 20, padding: '14px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <Icon name="calendar" size={15} color="var(--text-muted)" />
+          <input className="form-input" type="date" value={periodo.inicio} style={{ width: 150 }}
+            onChange={e => setPeriodo(p => ({ ...p, inicio: e.target.value }))} />
+          <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>até</span>
+          <input className="form-input" type="date" value={periodo.fim} style={{ width: 150 }}
+            onChange={e => setPeriodo(p => ({ ...p, fim: e.target.value }))} />
+          <div style={{ display: 'flex', gap: 4, marginLeft: 8 }}>
+            {[['hoje','Hoje'],['mes','Este mês'],['3m','3 meses'],['ano','Este ano']].map(([k,l]) => (
+              <button key={k} className="btn btn-ghost btn-sm" onClick={() => setQuickPeriod(k)}>{l}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* KPI cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
+        {[
+          { label: 'Receita Total',      value: fmt(totalReceita),                      color: 'var(--green)' },
+          { label: 'Taxa de Conversão',  value: `${relData?.leadsConversao?.taxa || 0}%`, color: 'var(--accent)' },
+          { label: 'Ticket Médio',       value: fmt(ticketMedio),                       color: 'var(--blue)' },
+          { label: 'Serviços Prestados', value: String(totalServicos),                  color: '#a855f7' },
+        ].map(k => (
+          <div key={k.label} className="card" style={{ padding: 16 }}>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, letterSpacing: 0.5 }}>{k.label}</div>
+            <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 22, fontWeight: 800, color: k.color }}>{k.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Tabs + charts */}
+      <div className="tabs" style={{ marginBottom: 20 }}>
+        {[['vendas','Receita Mensal'],['servicos','Serviços'],['conversao','Conversão']].map(([id,label]) => (
+          <button key={id} className={`tab-btn ${tab === id ? 'active' : ''}`} onClick={() => setTab(id)}>{label}</button>
+        ))}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 16 }}>
+        {/* Main chart */}
+        <div className="card">
+          <h3 style={{ marginBottom: 20 }}>
+            {tab === 'vendas' ? 'Receita por Mês' : tab === 'servicos' ? 'Serviços Mais Vendidos' : 'Funil de Conversão'}
+          </h3>
+
+          {loading && <div className="empty-state"><p>Carregando...</p></div>}
+
+          {!loading && tab === 'vendas' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {(relData?.vendasMes || []).map((m, i) => {
+                const pct = Math.round((m.valor / maxVenda) * 100);
+                const isLast = i === (relData.vendasMes.length - 1);
+                return (
+                  <div key={m.mes} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ width: 40, fontSize: 12, color: 'var(--text-muted)', textAlign: 'right', flexShrink: 0 }}>{m.mes}</div>
+                    <div style={{ flex: 1, height: 28, background: 'var(--bg-elevated)', borderRadius: 4, overflow: 'hidden', position: 'relative' }}>
+                      <div style={{
+                        height: '100%', width: `${pct}%`,
+                        background: isLast ? 'linear-gradient(90deg, var(--accent), #e09400)' : 'linear-gradient(90deg, var(--blue), #2563eb)',
+                        borderRadius: 4, transition: 'width 0.5s ease',
+                        display: 'flex', alignItems: 'center', paddingLeft: 10,
+                      }}>
+                        {pct > 25 && <span style={{ fontSize: 11, fontWeight: 700, color: pct > 25 ? 'var(--bg-base)' : 'transparent', whiteSpace: 'nowrap' }}>{fmt(m.valor)}</span>}
+                      </div>
+                    </div>
+                    <div style={{ width: 80, fontSize: 12, fontWeight: 700, fontFamily: 'Syne', textAlign: 'right', color: isLast ? 'var(--accent)' : 'var(--text-primary)' }}>
+                      {fmt(m.valor)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {!loading && tab === 'servicos' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {(relData?.servicosTop || []).map((s, i) => {
+                const maxT = Math.max(...(relData.servicosTop.map(x => x.total)), 1);
+                const pct = Math.round((s.total / maxT) * 100);
+                const colors = ['var(--accent)', 'var(--blue)', 'var(--green)', '#a855f7', 'var(--red)'];
+                return (
+                  <div key={s.nome}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 13 }}>
+                      <span style={{ fontWeight: 600 }}>{s.nome}</span>
+                      <span style={{ color: colors[i % colors.length], fontWeight: 700 }}>{s.total}× · {fmt(s.valor)}</span>
+                    </div>
+                    <div style={{ height: 8, background: 'var(--bg-elevated)', borderRadius: 4, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${pct}%`, background: colors[i % colors.length], borderRadius: 4, transition: 'width 0.5s ease' }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {!loading && tab === 'conversao' && relData?.leadsConversao && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {[
+                { label: 'Leads Captados', value: relData.leadsConversao.total, pct: 100, color: 'var(--blue)' },
+                { label: 'Em Atendimento', value: Math.round(relData.leadsConversao.total * 0.76), pct: 76, color: '#a855f7' },
+                { label: 'Com Proposta', value: Math.round(relData.leadsConversao.total * 0.60), pct: 60, color: 'var(--accent)' },
+                { label: 'Convertidos', value: relData.leadsConversao.fechados, pct: relData.leadsConversao.taxa, color: 'var(--green)' },
+              ].map(f => (
+                <div key={f.label}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 13 }}>
+                    <span>{f.label}</span>
+                    <span style={{ fontWeight: 700, color: f.color }}>{f.value} ({f.pct}%)</span>
+                  </div>
+                  <div style={{ height: 10, background: 'var(--bg-elevated)', borderRadius: 4, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${f.pct}%`, background: f.color, borderRadius: 4, transition: 'width 0.5s ease' }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Sidebar */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="card">
+            <h3 style={{ marginBottom: 14 }}>Top Serviços</h3>
+            {(relData?.servicosTop || []).map((s, i) => {
+              const bgs = ['var(--accent-dim)', 'var(--blue-dim)', 'var(--green-dim)', 'rgba(168,85,247,0.12)'];
+              const colors = ['var(--accent)', 'var(--blue)', 'var(--green)', '#a855f7'];
+              return (
+                <div key={s.nome} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, fontSize: 13 }}>
+                  <div style={{ width: 22, height: 22, borderRadius: 4, background: bgs[i % bgs.length], color: colors[i % colors.length], display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 11 }}>{i + 1}</div>
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.nome}</span>
+                  <span style={{ fontWeight: 700, fontFamily: 'Syne', color: colors[i % colors.length] }}>{s.total}×</span>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="card" style={{ background: 'var(--accent-dim)', border: '1px solid rgba(240,165,0,0.2)' }}>
+            <h3 style={{ marginBottom: 8 }}>Exportar</h3>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14, lineHeight: 1.6 }}>
+              Gere o relatório completo para o período selecionado.
+            </p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-primary btn-sm" style={{ flex: 1, justifyContent: 'center' }} onClick={handleExportExcel}>Excel</button>
+              <button className="btn btn-secondary btn-sm" style={{ flex: 1, justifyContent: 'center' }} onClick={handleExportPDF}>PDF</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
