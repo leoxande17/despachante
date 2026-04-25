@@ -1,0 +1,65 @@
+{
+  "name": "despacha-pr",
+  "version": "1.0.0",
+  "description": "Sistema de Gestão para Despachante de Veículos - Paraná",
+  "main": "src/main/main.js",
+  "author": "DespachaPR",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dev": "concurrently \"npm run dev:renderer\" \"wait-on http://localhost:3000 && electron .\"",
+    "dev:renderer": "vite --port 3000",
+    "build": "vite build && electron-builder",
+    "build:win": "electron-builder --win",
+    "db:init": "node scripts/init-db.js",
+    "db:seed": "node scripts/seed.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.7",
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^9.4.3",
+    "crypto-js": "^4.2.0",
+    "date-fns": "^3.3.1",
+    "electron-store": "^8.1.0",
+    "node-cron": "^4.2.1",
+    "pdfkit": "^0.14.0",
+    "uuid": "^14.0.0",
+    "winston": "^3.11.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.0.1",
+    "concurrently": "^8.2.2",
+    "electron": "^41.3.0",
+    "electron-builder": "^26.8.1",
+    "electron-rebuild": "^3.2.9",
+    "vite": "^8.0.10",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "br.com.despachapr",
+    "productName": "DespachaPR",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "DespachaPR"
+    },
+    "extraResources": [
+      {
+        "from": "database/",
+        "to": "database/"
+      }
+    ]
+  }
+}
