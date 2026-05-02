@@ -32,6 +32,11 @@ npm run build:win
 
 O instalador será gerado em `dist/DespachaPR Setup 1.0.0.exe`.
 
+> ⚠️ **Limitação Atual:** O build de produção pode falhar devido ao módulo `better-sqlite3` requerer C++20, mas o Visual Studio 2019 instalado suporta apenas C++17. Para builds de produção, considere:
+> - Atualizar para Visual Studio 2022 (suporta C++20)
+> - Usar uma versão pré-compilada do better-sqlite3
+> - Executar em modo desenvolvimento (`npm run dev`) para uso em produção
+
 ---
 
 ## 🗄️ Banco de Dados
