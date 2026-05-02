@@ -70,6 +70,21 @@ export default function DocumentosPage() {
     loadDocs();
   };
 
+  const [docsDir, setDocsDir] = useState(null);
+
+  useEffect(() => {
+    api.docs.getDirectory().then(r => { if (r) setDocsDir(r); });
+  }, []);
+
+  const handleSelectDirectory = async () => {
+    const dir = await api.docs.selectDirectory();
+    if (dir) {
+      await api.docs.setDirectory(dir);
+      setDocsDir(dir);
+      toast('Diretório de documentos configurado!', 'success');
+    }
+  };
+
   return (
     <div>
       <div className="page-header">
@@ -77,11 +92,16 @@ export default function DocumentosPage() {
           <h1 className="page-title">Documentos</h1>
           <p className="page-subtitle">Gestão eletrônica de documentos por processo</p>
         </div>
-        {processoId && (
-          <button className="btn btn-primary" onClick={() => setShowUpload(true)}>
-            <Icon name="upload" size={15} /> Enviar Documento
+        <div style={{display:'flex',gap:8}}>
+          <button className="btn btn-secondary btn-sm" onClick={handleSelectDirectory} title="Selecionar diretório">
+            <Icon name="folder" size={14}/> {docsDir ? 'Alterar Dir' : 'Selecionar Dir'}
           </button>
-        )}
+          {processoId && (
+            <button className="btn btn-primary" onClick={() => setShowUpload(true)}>
+              <Icon name="upload" size={15} /> Enviar Documento
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Seleção cliente + processo */}

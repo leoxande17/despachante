@@ -129,6 +129,18 @@ function setupIpcHandlers() {
     return result.canceled ? null : result.filePaths[0];
   });
 
+  // Selecionar diretório para documentos
+  ipcMain.handle('docs:selectDirectory', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openDirectory']
+    });
+    return result.canceled ? null : result.filePaths[0];
+  });
+
+  // Salvar diretório de documentos
+  ipcMain.handle('docs:setDirectory', (_, dir) => DocumentosService.setDocsDirectory(dir));
+  ipcMain.handle('docs:getDirectory', () => DocumentosService.getDocsDirectory());
+
   // Financeiro
   ipcMain.handle('fin:getContasReceber', (_, filters) => FinanceiroService.getContasReceber(filters));
   ipcMain.handle('fin:getContasPagar', (_, filters) => FinanceiroService.getContasPagar(filters));
@@ -138,6 +150,7 @@ function setupIpcHandlers() {
   ipcMain.handle('fin:getFluxoCaixa', (_, periodo) => FinanceiroService.getFluxoCaixa(periodo));
   ipcMain.handle('fin:getInadimplentes', () => FinanceiroService.getInadimplentes());
   ipcMain.handle('fin:getDashboard', () => FinanceiroService.getDashboard());
+  ipcMain.handle('fin:reverterPagamento', (_, id) => FinanceiroService.reverterPagamento(id));
 
   // Caixa
   ipcMain.handle('caixa:abrir', (_, data) => CaixaService.abrir(data));

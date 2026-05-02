@@ -129,6 +129,17 @@ export default function FinanceiroPage() {
                           <Icon name="check" size={12}/> Registrar
                         </button>
                       )}
+                      {l.status==='pago'&&(
+                        <button className="btn btn-secondary btn-sm" onClick={async()=>{
+                          if(confirm('Tem certeza que deseja voltar este lançamento para pendente?')){
+                            const r = await api.financeiro.reverterPagamento(l.id);
+                            if(r.success){ toast('Lançamento revertido para pendente!','success'); refresh(); }
+                            else toast(r.error||'Erro','error');
+                          }
+                        }}>
+                          <Icon name="rotate-ccw" size={12}/> Voltar
+                        </button>
+                      )}
                       <button className="btn btn-icon btn-ghost" onClick={()=>{setEditingLanc(l);setShowModal(true);}}>
                         <Icon name="edit" size={14}/>
                       </button>

@@ -34,12 +34,6 @@
     "electron-builder": "^26.8.1",
     "electron-rebuild": "^3.2.9",
     "vite": "^8.0.10",
-  "devDependencies": {
-    "electron": "^29.1.0",
-    "electron-builder": "^24.12.0",
-    "vite": "^5.1.4",
-    "concurrently": "^8.2.2",
->>>>>>> 54818e4b82d994806bae91c39da7b53bae51419a
     "wait-on": "^7.2.0"
   },
   "build": {

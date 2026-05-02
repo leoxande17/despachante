@@ -4,13 +4,35 @@ const path = require('path');
 const fs = require('fs');
 const { app, shell } = require('electron');
 const DatabaseService = require('./database');
+const Store = require('electron-store');
+
+const store = new Store();
 
 const DocumentosService = {
   db() { return DatabaseService.getDB(); },
+  
   getDocsDir() {
+    // Primeiro verifica se há um diretório customizado configurado
+    const customDir = store.get('docsDirectory');
+    if (customDir && fs.existsSync(customDir)) {
+      return customDir;
+    }
+    // Fallback para diretório padrão
     const dir = path.join(app.getPath('userData'), 'documentos');
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     return dir;
+  },
+  
+  getDocsDirectory() {
+    return store.get('docsDirectory') || null;
+  },
+  
+  setDocsDirectory(dir) {
+    if (dir && fs.existsSync(dir)) {
+      store.set('docsDirectory', dir);
+      return { success: true };
+    }
+    return { success: false, error: 'Diretório inválido' };
   },
 
   upload({ cliente_id, processo_id, tipo, filePath, fileName }) {

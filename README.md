@@ -15,13 +15,13 @@ Aplicação Electron offline-first com backend embutido e banco de dados SQLite.
 
 ```bash
 # 1. Clonar/descompactar o projeto
-cd despacha-pr
+cd despachante-main
 
 # 2. Instalar dependências
 npm install
 
-# 3. Inicializar banco de dados e dados de exemplo
-npm run db:seed
+# 3. Inicializar banco de dados (instalação limpa - SEM dados mockados)
+npm run db:init
 
 # 4. Rodar em desenvolvimento
 npm run dev
@@ -34,14 +34,47 @@ O instalador será gerado em `dist/DespachaPR Setup 1.0.0.exe`.
 
 ---
 
+## 🗄️ Banco de Dados
+
+### Localização
+O banco de dados SQLite é criado automaticamente na primeira execução em:
+- **Windows:** `%APPDATA%/DespachaPR/data/despachapr.db`
+
+### Comandos Disponíveis
+
+| Comando | Descrição |
+|---------|-----------|
+| `npm run db:init` | Inicializa o banco com estrutura vazia (apenas usuário admin) |
+| `npm run db:seed` | Popula com dados de exemplo para testes |
+
+### Estrutura do Banco
+O sistema utiliza migrações automáticas que criam as seguintes tabelas:
+- `usuarios` - Cadastro de usuários do sistema
+- `clientes` - Cadastro de clientes
+- `processos` - Processos de despachante
+- `lancamentos` - Financeiro (contas a pagar/receber)
+- `caixas` - Controle de caixa
+- `documentos` - Arquivos digitalizados
+- `servicos_catalogo` - Catálogo de serviços
+- `whatsapp_templates` - Templates de mensagem
+- `notas_fiscais` - Notas fiscais emitidas
+- `schema_version` - Controle de migrações
+
+### Primeira Execução
+1. Execute `npm run db:init` para criar o banco limpo
+2. Execute `npm run dev` para iniciar o aplicativo
+3. Faça login com as credenciais abaixo
+4. Altere a senha padrão imediatamente
+
+---
+
 ## 🔐 Credenciais Padrão
 
-| Perfil       | E-mail                        | Senha        |
-|--------------|-------------------------------|--------------|
-| Admin        | admin@despachapr.com          | admin123     |
-| Operador     | fernanda@despachapr.com       | operador123  |
+| Perfil | E-mail | Senha |
+|--------|--------|-------|
+| Admin | admin@despachapr.com | admin123 |
 
-> ⚠️ Altere as senhas após o primeiro acesso em **Configurações → Segurança**
+> ⚠️ **Importante:** Altere a senha após o primeiro acesso em **Configurações → Segurança**
 
 ---
 

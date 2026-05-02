@@ -172,6 +172,24 @@ const FinanceiroService = {
               saldoMes: receitaMes - despesaMes }
     };
   },
+
+  // Voltar lançamento pago para pendente
+  reverterPagamento(id) {
+    // Remove movimentos do caixa relacionados
+    this.db().prepare('DELETE FROM caixa_movimentos WHERE lancamento_id = ?').run(id);
+    
+    // Atualiza status para pendente e limpa dados de pagamento
+    this.db().prepare(`
+      UPDATE lancamentos SET
+        status='pendente',
+        forma_pagamento=NULL,
+        data_pagamento=NULL,
+        atualizado_em=datetime('now')
+      WHERE id=?
+    `).run(id);
+    
+    return { success: true };
+  },
 };
 
 module.exports = FinanceiroService;

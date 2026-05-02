@@ -158,6 +158,9 @@ function createMockAPI() {
       updateStatus:async({id,status})=>{documentos=documentos.map(d=>d.id===id?{...d,status}:d);return{success:true};},
       open:async()=>{},
       selectFile:async()=>'/mock/path/documento_exemplo.pdf',
+      selectDirectory:async()=>null,
+      setDirectory:async(dir)=>{localStorage.setItem('docsDirectory',dir);return{success:true};},
+      getDirectory:async()=>localStorage.getItem('docsDirectory'),
     },
     financeiro:{
       getContasReceber:async(f={})=>{let d=lancamentos.filter(l=>l.tipo==='receita');if(f.status)d=d.filter(l=>l.status===f.status);return{success:true,data:d};},
@@ -186,6 +189,10 @@ function createMockAPI() {
         const totalPagar=lancamentos.filter(l=>l.tipo==='despesa'&&l.status!=='pago'&&l.status!=='cancelado').reduce((s,l)=>s+l.valor,0);
         const inadimplentes=lancamentos.filter(l=>l.status==='atrasado').length;
         return{success:true,data:{totalReceber,totalPagar,receitaMes,despesaMes,inadimplentes,saldoMes:receitaMes-despesaMes}};
+      },
+      reverterPagamento:async(id)=>{
+        lancamentos=lancamentos.map(l=>l.id===id?{...l,status:'pendente',forma_pagamento:null,data_pagamento:null}:l);
+        return{success:true};
       },
     },
     caixa:{
