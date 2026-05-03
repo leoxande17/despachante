@@ -35,7 +35,18 @@ const DocumentosService = {
     return { success: false, error: 'Diretório inválido' };
   },
 
-  upload({ cliente_id, processo_id, tipo, filePath, fileName }) {
+  upload(data) {
+    const cliente_id = data.cliente_id;
+    const processo_id = data.processo_id;
+    const tipo = data.tipo;
+    const filePath = data.filePath || data.file_path;
+    const fileName = data.fileName || data.nome_original || path.basename(filePath || '');
+
+    if (!cliente_id) return { success: false, error: 'Cliente nao informado' };
+    if (!filePath || !fs.existsSync(filePath)) {
+      return { success: false, error: 'Arquivo nao encontrado' };
+    }
+
     const id = uuidv4();
     const ext = path.extname(fileName);
     const nomeArquivo = `${id}${ext}`;
@@ -54,7 +65,14 @@ const DocumentosService = {
     return { success: true, id };
   },
 
-  list(clienteId) {
+  list(processoId) {
+    const docs = this.db().prepare(
+      'SELECT * FROM documentos WHERE processo_id=? ORDER BY criado_em DESC'
+    ).all(processoId);
+    return { success: true, data: docs };
+  },
+
+  listByCliente(clienteId) {
     const docs = this.db().prepare(
       'SELECT * FROM documentos WHERE cliente_id=? ORDER BY criado_em DESC'
     ).all(clienteId);
@@ -82,4 +100,4 @@ const DocumentosService = {
   }
 };
 
-module.exports = { DocumentosService };
+module.exports = DocumentosService;

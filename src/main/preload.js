@@ -47,10 +47,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   docs: {
     upload: (data) => ipcRenderer.invoke('docs:upload', data),
     list: (processoId) => ipcRenderer.invoke('docs:list', processoId),
+    listByCliente: (clienteId) => ipcRenderer.invoke('docs:listByCliente', clienteId),
     delete: (id) => ipcRenderer.invoke('docs:delete', id),
     updateStatus: (data) => ipcRenderer.invoke('docs:updateStatus', data),
     open: (id) => ipcRenderer.invoke('docs:open', id),
     selectFile: () => ipcRenderer.invoke('docs:selectFile'),
+    selectDirectory: () => ipcRenderer.invoke('docs:selectDirectory'),
+    setDirectory: (dir) => ipcRenderer.invoke('docs:setDirectory', dir),
+    getDirectory: () => ipcRenderer.invoke('docs:getDirectory'),
   },
 
   // Financeiro

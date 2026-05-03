@@ -25,6 +25,7 @@ app.whenReady().then(async () => {
   try {
     // Inicializar banco de dados
     db = await DatabaseService.initialize();
+    await AuthService.ensureDefaultAdmin();
     LogService.info('Banco de dados inicializado');
 
     createMainWindow();
@@ -62,7 +63,7 @@ function createMainWindow() {
     mainWindow.loadURL('http://localhost:3000');
     mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../../dist/index.html'));
+    mainWindow.loadFile(path.join(__dirname, '../../renderer-dist/index.html'));
   }
 
   mainWindow.once('ready-to-show', () => {
@@ -116,6 +117,7 @@ function setupIpcHandlers() {
   // Documentos
   ipcMain.handle('docs:upload', (_, data) => DocumentosService.upload(data));
   ipcMain.handle('docs:list', (_, processoId) => DocumentosService.list(processoId));
+  ipcMain.handle('docs:listByCliente', (_, clienteId) => DocumentosService.listByCliente(clienteId));
   ipcMain.handle('docs:delete', (_, id) => DocumentosService.delete(id));
   ipcMain.handle('docs:updateStatus', (_, data) => DocumentosService.updateStatus(data));
   ipcMain.handle('docs:open', (_, id) => DocumentosService.openFile(id));

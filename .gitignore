@@ -4,6 +4,7 @@ node_modules/
 # Build output
 dist/
 build/
+renderer-dist/
 
 # Logs
 logs/
@@ -33,3 +34,7 @@ Thumbs.db
 # Backup
 backups/
 *.zip
+
+# Local debug artifacts
+handle_output.txt
+handle_tool/

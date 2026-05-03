@@ -1,32 +1,43 @@
 // scripts/init-db.js
 // Inicialização do banco de dados para instalação limpa
-const Database = require('better-sqlite3');
+const initSqlJs = require('sql.js');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const fs = require('fs');
+const { SCHEMA_SQL } = require('../src/main/services/schema');
 
 const DB_DIR = path.join(__dirname, '../database');
 const DB_PATH = path.join(DB_DIR, 'despachapr.db');
+
+function runStatement(db, sql, params = []) {
+  const stmt = db.prepare(sql);
+  stmt.bind(params);
+  stmt.step();
+  stmt.free();
+}
 
 async function init() {
   console.log('🔧 Inicializando banco de dados DespachaPR...');
 
   if (!fs.existsSync(DB_DIR)) fs.mkdirSync(DB_DIR, { recursive: true });
 
-  const db = new Database(DB_PATH);
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
+  const SQL = await initSqlJs();
+  const fileBuffer = fs.existsSync(DB_PATH) ? fs.readFileSync(DB_PATH) : undefined;
+  const db = new SQL.Database(fileBuffer);
+
+  db.exec('PRAGMA foreign_keys = ON;');
+  db.exec('PRAGMA journal_mode = WAL;');
 
   // Criar todas as tabelas (schema v1)
-  db.exec(fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8'));
+  db.exec(SCHEMA_SQL);
 
   // Admin padrão
   const adminHash = await bcrypt.hash('admin123', 10);
-  db.prepare(`
+  runStatement(db, `
     INSERT OR IGNORE INTO usuarios (id, nome, email, senha_hash, perfil)
     VALUES (?, 'Administrador', 'admin@despachapr.com', ?, 'admin')
-  `).run(uuidv4(), adminHash);
+  `, [uuidv4(), adminHash]);
 
   // Serviços padrão
   const servicos = [
@@ -42,11 +53,11 @@ async function init() {
     ['Renovação de CNH', 130.00, '7319'],
   ];
 
-  const insertServico = db.prepare(
-    'INSERT OR IGNORE INTO servicos_catalogo (id, nome, valor_padrao, codigo_servico_nf) VALUES (?, ?, ?, ?)'
-  );
   for (const [nome, valor, codigo] of servicos) {
-    insertServico.run(uuidv4(), nome, valor, codigo);
+    runStatement(db,
+      'INSERT OR IGNORE INTO servicos_catalogo (id, nome, valor_padrao, codigo_servico_nf) VALUES (?, ?, ?, ?)',
+      [uuidv4(), nome, valor, codigo]
+    );
   }
 
   // Templates WhatsApp
@@ -59,14 +70,17 @@ async function init() {
     ['Lembrete Licenciamento', 'cobrança', 'Olá, {{nome}}! ⚠️\n\nSeu licenciamento vence em {{data}}. Evite multas e irregularidades!\n\nPosso te ajudar a regularizar de forma rápida e sem sair de casa.\n\nResponda SIM para iniciar o processo!'],
   ];
 
-  const insertTemplate = db.prepare(
-    'INSERT OR IGNORE INTO whatsapp_templates (id, nome, categoria, mensagem) VALUES (?, ?, ?, ?)'
-  );
   for (const [nome, cat, msg] of templates) {
-    insertTemplate.run(uuidv4(), nome, cat, msg);
+    runStatement(db,
+      'INSERT OR IGNORE INTO whatsapp_templates (id, nome, categoria, mensagem) VALUES (?, ?, ?, ?)',
+      [uuidv4(), nome, cat, msg]
+    );
   }
 
+  const data = db.export();
+  fs.writeFileSync(DB_PATH, Buffer.from(data));
   db.close();
+
   console.log('✅ Banco de dados inicializado com sucesso!');
   console.log('   📧 Login: admin@despachapr.com');
   console.log('   🔑 Senha: admin123');

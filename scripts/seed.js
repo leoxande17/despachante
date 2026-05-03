@@ -1,15 +1,69 @@
 // scripts/seed.js - Dados de exemplo para demonstração
-const Database = require('better-sqlite3');
+const initSqlJs = require('sql.js');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const fs = require('fs');
 
 const DB_PATH = path.join(__dirname, '../database/despachapr.db');
-const db = new Database(DB_PATH);
+
+function createDbWrapper(rawDb, dbPath) {
+  const save = () => {
+    const data = rawDb.export();
+    fs.writeFileSync(dbPath, Buffer.from(data));
+  };
+
+  return {
+    exec(sql) {
+      return rawDb.exec(sql);
+    },
+    prepare(sql) {
+      const stmt = rawDb.prepare(sql);
+      return {
+        get(...params) {
+          stmt.bind(params);
+          const hasRow = stmt.step();
+          const row = hasRow ? stmt.getAsObject() : undefined;
+          stmt.reset();
+          return row;
+        },
+        all(...params) {
+          stmt.bind(params);
+          const rows = [];
+          while (stmt.step()) {
+            rows.push(stmt.getAsObject());
+          }
+          stmt.reset();
+          return rows;
+        },
+        run(...params) {
+          stmt.bind(params);
+          stmt.step();
+          stmt.reset();
+          save();
+          return this;
+        },
+        raw() {
+          return stmt;
+        }
+      };
+    },
+    close() {
+      save();
+      rawDb.close();
+    }
+  };
+}
+
+let db;
 
 async function seed() {
   console.log('🌱 Iniciando seed de dados...');
+
+  const SQL = await initSqlJs();
+  const fileBuffer = fs.existsSync(DB_PATH) ? fs.readFileSync(DB_PATH) : undefined;
+  const rawDb = new SQL.Database(fileBuffer);
+  db = createDbWrapper(rawDb, DB_PATH);
 
   // Usuários
   const adminHash = await bcrypt.hash('admin123', 10);
