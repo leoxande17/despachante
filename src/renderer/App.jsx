@@ -103,7 +103,7 @@ function createMockAPI() {
         return{success:true,data:novo};
       },
       updateUser:async(d)=>{usuarios=usuarios.map(u=>u.id===d.id?{...u,...d}:u);return{success:true};},
-      deleteUser:async(id)=>{usuarios=usuarios.filter(u=>u.id!==id);return{success:true};},
+      deleteUser:async(data)=>{const id=typeof data==='string'?data:data.id;usuarios=usuarios.filter(u=>u.id!==id);return{success:true};},
     },
     crm:{
       getLeads:async(f={})=>{let d=[...leads];if(f.etapa)d=d.filter(l=>l.etapa===f.etapa);return{success:true,data:d};},
@@ -258,7 +258,12 @@ function createMockAPI() {
       disconnect:async()=>({success:true}),
       onQR:()=>{},onReady:()=>{},onMessage:()=>{},
     },
-    system:{backup:async()=>{alert('Em produção: abre seletor de pasta e salva backup .zip.');return{success:true};}},
+    system:{
+      backup:async()=>{alert('Em produção: abre seletor de pasta e salva backup .zip.');return{success:true};},
+      getSettings:async(key)=>({success:true,data:JSON.parse(localStorage.getItem(`dp_settings_${key}`)||'null')}),
+      setSettings:async({key,value})=>{localStorage.setItem(`dp_settings_${key}`,JSON.stringify(value));return{success:true,data:value};},
+    },
+    log:{getRecent:async()=>({success:true,data:[]}),export:async()=>({success:true})},
     notifications:{
       getAll:async()=>({success:true,data:[
         {id:'n1',tipo:'alerta',titulo:'Contas em Atraso',mensagem:'1 conta a receber atrasada',lida:0,criado_em:new Date().toISOString()},

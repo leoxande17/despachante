@@ -17,6 +17,26 @@ const PERMISSOES = [
   {id:'backup',     label:'Realizar backup'},
 ];
 
+const maskCNPJ = v => {
+  const d = v.replace(/\D/g,'').slice(0,14);
+  if(d.length<=2) return d;
+  if(d.length<=5) return d.replace(/^(\d{2})(\d+)$/,'$1.$2');
+  if(d.length<=8) return d.replace(/^(\d{2})(\d{3})(\d+)$/,'$1.$2.$3');
+  if(d.length<=12) return d.replace(/^(\d{2})(\d{3})(\d{3})(\d+)$/,'$1.$2.$3/$4');
+  return d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{1,2})$/,'$1.$2.$3/$4-$5');
+};
+const maskPhone = v => {
+  const d = v.replace(/\D/g,'').slice(0,11);
+  if(d.length<=2) return d.length ? `(${d}` : '';
+  if(d.length<=7) return d.replace(/^(\d{2})(\d+)$/,'($1) $2');
+  if(d.length<=10) return d.replace(/^(\d{2})(\d{4})(\d+)$/,'($1) $2-$3');
+  return d.replace(/^(\d{2})(\d{5})(\d{4})$/,'($1) $2-$3');
+};
+const maskCEP = v => {
+  const d = v.replace(/\D/g,'').slice(0,8);
+  return d.length<=5 ? d : d.replace(/^(\d{5})(\d+)$/,'$1-$2');
+};
+
 export default function ConfigPage() {
   const { session } = useAuth();
   const toast = useToast();
@@ -36,7 +56,12 @@ export default function ConfigPage() {
 
   useEffect(()=>{
     if(isAdmin){ api.auth.listUsers(session.token).then(r=>{ if(r.success) setUsuarios(r.data); }); }
-  },[refreshKey]);
+  },[isAdmin, refreshKey, session.token]);
+
+  useEffect(()=>{
+    api.system.getSettings('empresa').then(r=>{ if(r.success && r.data) setEmpresa(r.data); });
+    api.system.getSettings('nfse').then(r=>{ if(r.success && r.data) setNfsConfig(r.data); });
+  },[]);
 
   const handleChangeSenha = async () => {
     if(senhaForm.nova!==senhaForm.confirmar){ toast('As senhas não conferem','error'); return; }
@@ -48,16 +73,35 @@ export default function ConfigPage() {
 
   const handleSaveUser = async data => {
     let r;
-    if(data.id) r = await api.auth.updateUser(data);
-    else        r = await api.auth.createUser(data);
+    const payload = {...data, token:session.token};
+    if(data.id) r = await api.auth.updateUser(payload);
+    else        r = await api.auth.createUser(payload);
     if(r.success){ toast(data.id?'Usuário atualizado!':'Usuário criado!','success'); setShowNovoUser(false); setEditUser(null); setRefreshKey(k=>k+1); }
     else toast(r.error||'Erro ao salvar usuário','error');
   };
 
   const handleDeleteUser = async id => {
     if(!confirm('Remover usuário?')) return;
-    const r = await api.auth.deleteUser(id);
+    const r = await api.auth.deleteUser({id, token:session.token});
     if(r.success){ toast('Usuário removido','info'); setRefreshKey(k=>k+1); }
+  };
+
+  const handleSaveEmpresa = async () => {
+    const r = await api.system.setSettings({key:'empresa', value:empresa});
+    if(r.success) toast('Dados da empresa salvos!','success');
+    else toast(r.error||'Erro ao salvar dados da empresa','error');
+  };
+
+  const handleSaveNfse = async () => {
+    const r = await api.system.setSettings({key:'nfse', value:nfsConfig});
+    if(r.success) toast('Config NFS-e salva!','success');
+    else toast(r.error||'Erro ao salvar NFS-e','error');
+  };
+
+  const handleExportLogs = async () => {
+    const r = await api.log.export();
+    if(r.success) toast('Logs exportados!','success');
+    else if(r.error) toast(r.error,'error');
   };
 
   return (
@@ -90,17 +134,17 @@ export default function ConfigPage() {
               <div className="form-grid form-grid-2" style={{gap:14}}>
                 <div className="form-group" style={{gridColumn:'1/-1'}}>
                   <label className="form-label">Razão Social</label>
-                  <input className="form-input" value={empresa.nome} onChange={e=>setEmpresa(f=>({...f,nome:e.target.value}))}/>
+                  <input className="form-input" value={empresa.nome} maxLength={140} onChange={e=>setEmpresa(f=>({...f,nome:e.target.value}))}/>
                 </div>
-                <div className="form-group"><label className="form-label">CNPJ</label><input className="form-input" value={empresa.cnpj} onChange={e=>setEmpresa(f=>({...f,cnpj:e.target.value}))} placeholder="00.000.000/0001-00"/></div>
-                <div className="form-group"><label className="form-label">Inscrição Municipal</label><input className="form-input" value={empresa.inscricaoMunicipal} onChange={e=>setEmpresa(f=>({...f,inscricaoMunicipal:e.target.value}))}/></div>
-                <div className="form-group" style={{gridColumn:'1/-1'}}><label className="form-label">Endereço</label><input className="form-input" value={empresa.logradouro} onChange={e=>setEmpresa(f=>({...f,logradouro:e.target.value}))}/></div>
-                <div className="form-group"><label className="form-label">Cidade</label><input className="form-input" value={empresa.cidade} onChange={e=>setEmpresa(f=>({...f,cidade:e.target.value}))}/></div>
-                <div className="form-group"><label className="form-label">CEP</label><input className="form-input" value={empresa.cep} onChange={e=>setEmpresa(f=>({...f,cep:e.target.value}))}/></div>
-                <div className="form-group"><label className="form-label">Telefone</label><input className="form-input" value={empresa.telefone} onChange={e=>setEmpresa(f=>({...f,telefone:e.target.value}))}/></div>
-                <div className="form-group"><label className="form-label">E-mail</label><input className="form-input" type="email" value={empresa.email} onChange={e=>setEmpresa(f=>({...f,email:e.target.value}))}/></div>
+                <div className="form-group"><label className="form-label">CNPJ</label><input className="form-input" value={empresa.cnpj} maxLength={18} onChange={e=>setEmpresa(f=>({...f,cnpj:maskCNPJ(e.target.value)}))} placeholder="00.000.000/0001-00"/></div>
+                <div className="form-group"><label className="form-label">Inscrição Municipal</label><input className="form-input" value={empresa.inscricaoMunicipal} maxLength={30} onChange={e=>setEmpresa(f=>({...f,inscricaoMunicipal:e.target.value}))}/></div>
+                <div className="form-group" style={{gridColumn:'1/-1'}}><label className="form-label">Endereço</label><input className="form-input" value={empresa.logradouro} maxLength={180} onChange={e=>setEmpresa(f=>({...f,logradouro:e.target.value}))}/></div>
+                <div className="form-group"><label className="form-label">Cidade</label><input className="form-input" value={empresa.cidade} maxLength={80} onChange={e=>setEmpresa(f=>({...f,cidade:e.target.value}))}/></div>
+                <div className="form-group"><label className="form-label">CEP</label><input className="form-input" value={empresa.cep} maxLength={9} onChange={e=>setEmpresa(f=>({...f,cep:maskCEP(e.target.value)}))}/></div>
+                <div className="form-group"><label className="form-label">Telefone</label><input className="form-input" value={empresa.telefone} maxLength={16} onChange={e=>setEmpresa(f=>({...f,telefone:maskPhone(e.target.value)}))}/></div>
+                <div className="form-group"><label className="form-label">E-mail</label><input className="form-input" type="email" value={empresa.email} maxLength={120} onChange={e=>setEmpresa(f=>({...f,email:e.target.value}))}/></div>
               </div>
-              <div style={{marginTop:20}}><button className="btn btn-primary" onClick={()=>toast('Dados da empresa salvos!','success')}>Salvar Dados</button></div>
+              <div style={{marginTop:20}}><button className="btn btn-primary" onClick={handleSaveEmpresa}>Salvar Dados</button></div>
             </div>
           )}
 
@@ -119,7 +163,7 @@ export default function ConfigPage() {
                 <div className="form-group"><label className="form-label">Inscrição Municipal</label><input className="form-input" value={nfsConfig.inscricaoMunicipal} onChange={e=>setNfsConfig(f=>({...f,inscricaoMunicipal:e.target.value}))}/></div>
               </div>
               <div style={{marginTop:20,display:'flex',gap:8}}>
-                <button className="btn btn-primary" onClick={()=>toast('Config NFS-e salva!','success')}>Salvar</button>
+                <button className="btn btn-primary" onClick={handleSaveNfse}>Salvar</button>
                 <button className="btn btn-secondary" onClick={()=>toast('Conexão testada — modo demo','info')}><Icon name="refresh" size={14}/> Testar Conexão</button>
               </div>
             </div>
@@ -234,7 +278,7 @@ export default function ConfigPage() {
                 ))}
               </div>
               <div style={{marginTop:20,display:'flex',gap:8}}>
-                <button className="btn btn-secondary btn-sm" onClick={()=>toast('Logs exportados!','success')}><Icon name="download" size={13}/> Exportar Logs</button>
+                <button className="btn btn-secondary btn-sm" onClick={handleExportLogs}><Icon name="download" size={13}/> Exportar Logs</button>
                 <button className="btn btn-danger btn-sm" onClick={()=>toast('Cache limpo!','success')}><Icon name="trash" size={13}/> Limpar Cache</button>
               </div>
             </div>

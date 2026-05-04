@@ -29,15 +29,19 @@ export default function CaixaPage() {
 
   const loadAll = useCallback(async () => {
     setLoading(true);
-    const [cx, mv, hist] = await Promise.all([
-      api.caixa.getAtual(),
-      api.caixa.getMovimentos(),
-      api.caixa.getHistorico(),
-    ]);
-    if(cx.success)   setCaixa(cx.data);
-    if(mv.success)   setMovimentos(mv.data);
-    if(hist.success) setHistorico(hist.data);
-    setLoading(false);
+    try {
+      const [cx, hist] = await Promise.all([
+        api.caixa.getAtual(),
+        api.caixa.getHistorico(),
+      ]);
+      const caixaAtual = cx.success ? cx.data : null;
+      const mv = caixaAtual?.id ? await api.caixa.getMovimentos(caixaAtual.id) : { success:true, data:[] };
+      if(cx.success)   setCaixa(caixaAtual);
+      if(mv.success)   setMovimentos(mv.data);
+      if(hist.success) setHistorico(hist.data);
+    } finally {
+      setLoading(false);
+    }
   },[refreshKey]);
 
   useEffect(()=>{ loadAll(); },[loadAll]);
@@ -56,7 +60,7 @@ export default function CaixaPage() {
   };
 
   const handleAddMovimento = async data => {
-    const r = await api.caixa.addMovimento({...data, tipo: showMovModal});
+    const r = await api.caixa.addMovimento({...data, caixa_id: caixa?.id, tipo: showMovModal});
     const tipoMsg = showMovModal === 'entrada' ? 'Entrada' : 'Saída';
     if(r.success){ toast(tipoMsg + ' registrada!', 'success'); setShowMovModal(null); refresh(); }
     else toast(r.error || 'Erro ao registrar', 'error');
@@ -303,7 +307,7 @@ function FecharModal({ caixa, saldoAtual, onFechar, onClose }) {
         </div>
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>Cancelar</button>
-          <button className="btn btn-danger" onClick={()=>onFechar({valor_final:parseMoney(valorFinal),observacoes:obs})}>
+          <button className="btn btn-danger" onClick={()=>onFechar({id:caixa.id, valor_final:parseMoney(valorFinal),observacoes:obs})}>
             <Icon name="lock" size={14}/> Confirmar Fechamento
           </button>
         </div>

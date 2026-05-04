@@ -41,6 +41,7 @@ const CaixaService = {
   },
 
   getMovimentos(caixaId) {
+    if (!caixaId) return { success: true, data: [] };
     const movs = this.db().prepare(
       'SELECT * FROM caixa_movimentos WHERE caixa_id=? ORDER BY criado_em ASC'
     ).all(caixaId);
@@ -53,7 +54,13 @@ const CaixaService = {
     if (data_inicio) { sql += ' AND date(data_abertura) >= ?'; params.push(data_inicio); }
     if (data_fim) { sql += ' AND date(data_abertura) <= ?'; params.push(data_fim); }
     sql += ' ORDER BY criado_em DESC LIMIT 30';
-    return { success: true, data: this.db().prepare(sql).all(...params) };
+    const caixas = this.db().prepare(sql).all(...params).map(caixa => ({
+      ...caixa,
+      movimentos: this.db().prepare(
+        'SELECT * FROM caixa_movimentos WHERE caixa_id=? ORDER BY criado_em ASC'
+      ).all(caixa.id),
+    }));
+    return { success: true, data: caixas };
   }
 };
 

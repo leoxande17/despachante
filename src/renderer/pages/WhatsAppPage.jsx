@@ -20,7 +20,11 @@ export default function WhatsAppPage() {
 
   const handleConnect = async () => {
     setStatus('connecting');
-    await api.whatsapp.init();
+    const r = await api.whatsapp.init();
+    if(!r.success){
+      setStatus('disconnected');
+      toast(r.error || 'Erro ao conectar WhatsApp', 'error');
+    }
   };
 
   const handleDisconnect = async () => {

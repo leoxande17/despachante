@@ -170,6 +170,25 @@ const CRMService = {
     return { success: true, data: { ...client, processos } };
   },
 
+  createClient(data) {
+    const id = uuidv4();
+    this.db().prepare(`
+      INSERT INTO clientes (
+        id, tipo, nome, cpf_cnpj, rg, email, telefone, whatsapp,
+        cep, logradouro, numero, complemento, bairro, cidade, estado, observacoes
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id, data.tipo || 'PF', data.nome, data.cpf_cnpj, data.rg, data.email,
+      data.telefone, data.whatsapp, data.cep, data.logradouro, data.numero,
+      data.complemento, data.bairro, data.cidade || 'Ibiporã',
+      data.estado || 'PR', data.observacoes
+    );
+
+    LogService.info('Cliente criado', { id, nome: data.nome });
+    return { success: true, id };
+  },
+
   updateClient(data) {
     this.db().prepare(`
       UPDATE clientes SET

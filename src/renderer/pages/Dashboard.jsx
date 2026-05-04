@@ -32,7 +32,6 @@ export default function Dashboard() {
   if (loading) return <div className="empty-state">Carregando dashboard...</div>;
 
   const maxVal = relData?.vendasMes ? Math.max(...relData.vendasMes.map(v => v.valor)) : 1;
-  const totalEntradas = 200 + 280 + 120; // mock caixa
 
   return (
     <div>
@@ -71,7 +70,7 @@ export default function Dashboard() {
         />
         <StatCard
           label="Caixa Hoje"
-          value={caixa?.status === 'aberto' ? fmt(totalEntradas) : 'Fechado'}
+          value={caixa?.status === 'aberto' ? 'Aberto' : 'Fechado'}
           icon="cash" iconBg="var(--blue-dim)" iconColor="var(--blue)"
           delta={caixa?.status === 'aberto' ? 'Caixa aberto' : 'Caixa não aberto'}
         />
@@ -204,7 +203,7 @@ export default function Dashboard() {
                 <svg width="80" height="80" viewBox="0 0 80 80">
                   <circle cx="40" cy="40" r="32" fill="none" stroke="var(--bg-elevated)" strokeWidth="8" />
                   <circle cx="40" cy="40" r="32" fill="none" stroke="var(--accent)" strokeWidth="8"
-                    strokeDasharray={`${201.06 * (relData?.leadsConversao?.taxa || 62) / 100} 201.06`}
+                    strokeDasharray={`${201.06 * (relData?.leadsConversao?.taxa ?? 0) / 100} 201.06`}
                     strokeDashoffset="50.26" strokeLinecap="round"
                   />
                 </svg>
@@ -213,7 +212,7 @@ export default function Dashboard() {
                   alignItems: 'center', justifyContent: 'center',
                   fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 18, color: 'var(--accent)'
                 }}>
-                  {relData?.leadsConversao?.taxa || 62}%
+                  {relData?.leadsConversao?.taxa ?? 0}%
                 </div>
               </div>
               <div>
@@ -221,11 +220,11 @@ export default function Dashboard() {
                 <div style={{ display: 'flex', gap: 16 }}>
                   <div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Total leads</div>
-                    <div style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 18 }}>{relData?.leadsConversao?.total || 45}</div>
+                    <div style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 18 }}>{relData?.leadsConversao?.total ?? 0}</div>
                   </div>
                   <div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Fechados</div>
-                    <div style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 18, color: 'var(--green)' }}>{relData?.leadsConversao?.fechados || 28}</div>
+                    <div style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 18, color: 'var(--green)' }}>{relData?.leadsConversao?.fechados ?? 0}</div>
                   </div>
                 </div>
               </div>

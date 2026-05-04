@@ -15,10 +15,16 @@ const WhatsAppService = {
 
     try {
       let baileys;
+      let QRCode;
       try { baileys = require('@whiskeysockets/baileys'); }
       catch (e) {
         LogService.warn('WhatsApp: Biblioteca Baileys não instalada. Execute: npm install @whiskeysockets/baileys');
         return { success: false, error: 'Baileys não instalado. Execute: npm install @whiskeysockets/baileys' };
+      }
+
+      try { QRCode = require('qrcode'); }
+      catch (e) {
+        return { success: false, error: 'Biblioteca qrcode não instalada. Execute: npm install' };
       }
 
       const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = baileys;
@@ -28,7 +34,11 @@ const WhatsAppService = {
 
       sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
-        if (qr) mainWindow?.webContents.send('whatsapp:qr', qr);
+        if (qr) {
+          whatsappStatus = 'connecting';
+          const qrImage = await QRCode.toDataURL(qr, { margin: 1, width: 260 });
+          mainWindow?.webContents.send('whatsapp:qr', qrImage);
+        }
         if (connection === 'close') {
           whatsappStatus = 'disconnected';
           const code = lastDisconnect?.error?.output?.statusCode;

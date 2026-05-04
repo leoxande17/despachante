@@ -18,6 +18,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     changePassword: (data) => ipcRenderer.invoke('auth:changePassword', data),
     listUsers: (token) => ipcRenderer.invoke('auth:listUsers', token),
     createUser: (data) => ipcRenderer.invoke('auth:createUser', data),
+    updateUser: (data) => ipcRenderer.invoke('auth:updateUser', data),
+    deleteUser: (data) => ipcRenderer.invoke('auth:deleteUser', data),
   },
 
   // CRM
@@ -32,6 +34,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     convertToClient: (id) => ipcRenderer.invoke('crm:convertToClient', id),
     getClients: (filters) => ipcRenderer.invoke('crm:getClients', filters),
     getClient: (id) => ipcRenderer.invoke('crm:getClient', id),
+    createClient: (data) => ipcRenderer.invoke('crm:createClient', data),
     updateClient: (data) => ipcRenderer.invoke('crm:updateClient', data),
     search: (query) => ipcRenderer.invoke('crm:search', query),
   },
@@ -64,6 +67,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     createLancamento: (data) => ipcRenderer.invoke('fin:createLancamento', data),
     updateLancamento: (data) => ipcRenderer.invoke('fin:updateLancamento', data),
     registrarPagamento: (data) => ipcRenderer.invoke('fin:registrarPagamento', data),
+    reverterPagamento: (id) => ipcRenderer.invoke('fin:reverterPagamento', id),
     getFluxoCaixa: (periodo) => ipcRenderer.invoke('fin:getFluxoCaixa', periodo),
     getInadimplentes: () => ipcRenderer.invoke('fin:getInadimplentes'),
     getDashboard: () => ipcRenderer.invoke('fin:getDashboard'),
@@ -114,11 +118,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Sistema
   system: {
     backup: () => ipcRenderer.invoke('system:backup'),
+    getSettings: (key) => ipcRenderer.invoke('system:getSettings', key),
+    setSettings: (data) => ipcRenderer.invoke('system:setSettings', data),
   },
 
   // Logs
   log: {
     getRecent: () => ipcRenderer.invoke('log:getRecent'),
+    export: () => ipcRenderer.invoke('log:export'),
   },
 
   // Notificações

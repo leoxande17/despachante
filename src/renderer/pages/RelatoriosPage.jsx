@@ -45,8 +45,9 @@ export default function RelatoriosPage() {
 
   const handleExport = async tipo => {
     const fn = tipo==='excel' ? api.relatorios.exportExcel : api.relatorios.exportPDF;
-    const r = await fn({tipo:tab, ...periodo});
+    const r = await fn({tipo:tab, data_inicio:periodo.inicio, data_fim:periodo.fim});
     if(r.success) toast(`Exportado em ${tipo==='excel'?'Excel':'PDF'}!`,'success');
+    else if(r.error) toast(r.error,'error');
   };
 
   const maxVenda = relData?.vendasMes ? Math.max(...relData.vendasMes.map(v=>v.valor),1) : 1;

@@ -1,4 +1,5 @@
 // src/main/services/log.js
+const fs = require('fs');
 const DatabaseService = require('./database');
 
 const LogService = {
@@ -27,6 +28,16 @@ const LogService = {
       SELECT * FROM logs_sistema ORDER BY criado_em DESC LIMIT 100
     `).all();
     return { success: true, data: logs };
+  },
+
+  exportToFile(filePath) {
+    const recent = this.getRecent();
+    const lines = (recent.data || []).map(log => {
+      const dados = log.dados ? ` | ${log.dados}` : '';
+      return `[${log.criado_em}] ${String(log.nivel).toUpperCase()} ${log.mensagem}${dados}`;
+    });
+    fs.writeFileSync(filePath, lines.join('\n'), 'utf8');
+    return { success: true, path: filePath };
   }
 };
 

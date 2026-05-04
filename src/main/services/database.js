@@ -25,14 +25,14 @@ const createDbWrapper = (rawDb, dbPath) => {
       const stmt = rawDb.prepare(sql);
       return {
         get(...params) {
-          stmt.bind(params);
+          stmt.bind(params.map(p => p === undefined ? null : p));
           const hasRow = stmt.step();
           const row = hasRow ? stmt.getAsObject() : undefined;
           stmt.reset();
           return row;
         },
         all(...params) {
-          stmt.bind(params);
+          stmt.bind(params.map(p => p === undefined ? null : p));
           const rows = [];
           while (stmt.step()) {
             rows.push(stmt.getAsObject());
@@ -41,7 +41,7 @@ const createDbWrapper = (rawDb, dbPath) => {
           return rows;
         },
         run(...params) {
-          stmt.bind(params);
+          stmt.bind(params.map(p => p === undefined ? null : p));
           stmt.step();
           stmt.reset();
           save();

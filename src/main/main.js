@@ -14,6 +14,7 @@ const NotaFiscalService = require('./services/notafiscal');
 const RelatoriosService = require('./services/relatorios');
 const LogService = require('./services/log');
 const WhatsAppService = require('./services/whatsapp');
+const SettingsService = require('./services/settings');
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -94,6 +95,8 @@ function setupIpcHandlers() {
   ipcMain.handle('auth:changePassword', (_, data) => AuthService.changePassword(data));
   ipcMain.handle('auth:listUsers', (_, token) => AuthService.listUsers(token));
   ipcMain.handle('auth:createUser', (_, data) => AuthService.createUser(data));
+  ipcMain.handle('auth:updateUser', (_, data) => AuthService.updateUser(data));
+  ipcMain.handle('auth:deleteUser', (_, data) => AuthService.deleteUser(data));
 
   // CRM / Leads
   ipcMain.handle('crm:getLeads', (_, filters) => CRMService.getLeads(filters));
@@ -106,6 +109,7 @@ function setupIpcHandlers() {
   ipcMain.handle('crm:convertToClient', (_, id) => CRMService.convertToClient(id));
   ipcMain.handle('crm:getClients', (_, filters) => CRMService.getClients(filters));
   ipcMain.handle('crm:getClient', (_, id) => CRMService.getClient(id));
+  ipcMain.handle('crm:createClient', (_, data) => CRMService.createClient(data));
   ipcMain.handle('crm:updateClient', (_, data) => CRMService.updateClient(data));
   ipcMain.handle('crm:search', (_, query) => CRMService.search(query));
 
@@ -189,6 +193,8 @@ function setupIpcHandlers() {
     }
     return null;
   });
+  ipcMain.handle('system:getSettings', (_, key) => SettingsService.get(key));
+  ipcMain.handle('system:setSettings', (_, { key, value }) => SettingsService.set(key, value));
 
   // WhatsApp
   ipcMain.handle('whatsapp:init', () => WhatsAppService.initialize(mainWindow));
@@ -199,6 +205,14 @@ function setupIpcHandlers() {
 
   // Logs
   ipcMain.handle('log:getRecent', () => LogService.getRecent());
+  ipcMain.handle('log:export', async () => {
+    const result = await dialog.showSaveDialog(mainWindow, {
+      defaultPath: `logs-despachapr-${new Date().toISOString().slice(0,10)}.txt`,
+      filters: [{ name: 'Logs', extensions: ['txt'] }]
+    });
+    if (result.canceled) return { success: false, error: 'Cancelado' };
+    return LogService.exportToFile(result.filePath);
+  });
 
   // Notificações
   ipcMain.handle('notification:getAll', () => NotificacaoService.getAll());

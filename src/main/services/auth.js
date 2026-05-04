@@ -112,13 +112,13 @@ const AuthService = {
 
     const db = this.getDB();
     const users = db.prepare(
-      'SELECT id, nome, email, perfil, ativo, ultimo_acesso, criado_em FROM usuarios ORDER BY nome'
+      'SELECT id, nome, email, perfil, ativo, ultimo_acesso, criado_em FROM usuarios WHERE ativo = 1 ORDER BY nome'
     ).all();
 
     return { success: true, data: users };
   },
 
-  async createUser({ token, nome, email, senha, perfil }) {
+  async createUser({ token, nome, email, senha, perfil, ativo = 1 }) {
     const verify = this.verifyToken(token);
     if (!verify.valid || verify.usuario.perfil !== 'admin') {
       return { success: false, error: 'Sem permissão' };
@@ -132,11 +132,57 @@ const AuthService = {
     const id = uuidv4();
 
     db.prepare(`
-      INSERT INTO usuarios (id, nome, email, senha_hash, perfil) VALUES (?, ?, ?, ?, ?)
-    `).run(id, nome, email, hash, perfil || 'operador');
+      INSERT INTO usuarios (id, nome, email, senha_hash, perfil, ativo) VALUES (?, ?, ?, ?, ?, ?)
+    `).run(id, nome, email, hash, perfil || 'operador', ativo ? 1 : 0);
 
     LogService.info('Usuário criado', { nome, email });
     return { success: true, id };
+  },
+
+  async updateUser({ token, id, nome, email, senha, perfil, ativo = 1 }) {
+    const verify = this.verifyToken(token);
+    if (!verify.valid || verify.usuario.perfil !== 'admin') {
+      return { success: false, error: 'Sem permissão' };
+    }
+    if (id === verify.usuario.id && perfil !== 'admin') {
+      return { success: false, error: 'O administrador logado não pode remover o próprio perfil admin' };
+    }
+
+    const db = this.getDB();
+    const exists = db.prepare('SELECT id FROM usuarios WHERE email = ? AND id <> ?').get(email, id);
+    if (exists) return { success: false, error: 'E-mail já cadastrado' };
+
+    if (senha) {
+      const hash = await bcrypt.hash(senha, 10);
+      db.prepare(`
+        UPDATE usuarios SET nome=?, email=?, senha_hash=?, perfil=?, ativo=?, atualizado_em=datetime('now')
+        WHERE id=?
+      `).run(nome, email, hash, perfil || 'operador', ativo ? 1 : 0, id);
+    } else {
+      db.prepare(`
+        UPDATE usuarios SET nome=?, email=?, perfil=?, ativo=?, atualizado_em=datetime('now')
+        WHERE id=?
+      `).run(nome, email, perfil || 'operador', ativo ? 1 : 0, id);
+    }
+
+    LogService.info('Usuário atualizado', { id, nome, email });
+    return { success: true };
+  },
+
+  deleteUser({ token, id }) {
+    const verify = this.verifyToken(token);
+    if (!verify.valid || verify.usuario.perfil !== 'admin') {
+      return { success: false, error: 'Sem permissão' };
+    }
+    if (id === verify.usuario.id) {
+      return { success: false, error: 'Não é possível excluir o usuário logado' };
+    }
+
+    this.getDB().prepare(`
+      UPDATE usuarios SET ativo=0, atualizado_em=datetime('now') WHERE id=?
+    `).run(id);
+    LogService.info('Usuário desativado', { id });
+    return { success: true };
   },
 
   // Criar admin padrão se não existir

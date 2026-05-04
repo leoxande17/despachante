@@ -59,12 +59,7 @@ const RelatoriosService = {
       success: true,
       data: {
         vendasMes: vendasMes.length > 0 ? vendasMes : ultimos6,
-        servicosTop: servicosTop.length > 0 ? servicosTop : [
-          { nome: 'Transferência', total: 12, valor: 3360 },
-          { nome: 'Licenciamento', total: 18, valor: 2160 },
-          { nome: 'Emplacamento', total: 5, valor: 1750 },
-          { nome: 'CNH', total: 7, valor: 1260 },
-        ],
+        servicosTop,
         leadsConversao: { total: totalLeads, fechados, taxa }
       }
     };
@@ -120,19 +115,36 @@ const RelatoriosService = {
   async exportExcel({ tipo, data_inicio, data_fim }) {
     let data = [];
     let sheetName = 'Relatório';
+    const periodo = this._periodo(data_inicio, data_fim);
 
     if (tipo === 'vendas') {
-      const res = this.vendas({ data_inicio, data_fim });
+      const res = this.vendas(periodo);
       data = res.data.map(r => ({
         'Descrição': r.descricao, 'Cliente': r.cliente_nome, 'Serviço': r.servico_nome,
         'Vencimento': r.data_vencimento, 'Pagamento': r.data_pagamento,
         'Valor': r.valor, 'Status': r.status, 'Forma Pgto': r.forma_pagamento
       }));
       sheetName = 'Vendas';
+    } else if (tipo === 'servicos') {
+      const res = this.servicosMaisVendidos(periodo);
+      data = res.data.map(r => ({
+        'Serviço': r.nome,
+        'Quantidade': r.total,
+        'Receita': r.receita || 0,
+      }));
+      sheetName = 'Serviços';
+    } else if (tipo === 'conversao') {
+      const res = this.conversao(periodo);
+      data = res.data.map(r => ({
+        'Etapa': r.etapa,
+        'Total': r.total,
+        'Ticket Médio': r.ticket_medio || 0,
+      }));
+      sheetName = 'Conversão';
     }
 
     const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(data);
+    const ws = XLSX.utils.json_to_sheet(data.length ? data : [{ Mensagem: 'Nenhum registro no período' }]);
 
     // Estilo básico de cabeçalho
     const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
@@ -153,6 +165,7 @@ const RelatoriosService = {
   },
 
   async exportPDF({ tipo, data_inicio, data_fim }) {
+    const periodo = this._periodo(data_inicio, data_fim);
     const result = await dialog.showSaveDialog({
       defaultPath: `relatorio-${tipo}-${new Date().toISOString().slice(0,10)}.pdf`,
       filters: [{ name: 'PDF', extensions: ['pdf'] }]
@@ -167,15 +180,20 @@ const RelatoriosService = {
 
       // Cabeçalho
       doc.fontSize(20).font('Helvetica-Bold').text('DespachaPR', { align: 'center' });
-      doc.fontSize(12).font('Helvetica').text(`Relatório de ${tipo} — Período: ${data_inicio || ''} a ${data_fim || ''}`, { align: 'center' });
+      doc.fontSize(12).font('Helvetica').text(`Relatorio de ${tipo} - Periodo: ${periodo.data_inicio} a ${periodo.data_fim}`, { align: 'center' });
       doc.moveDown();
 
       // Dados
-      const dados = this.vendas({ data_inicio, data_fim }).data;
+      const dados = tipo === 'servicos'
+        ? this.servicosMaisVendidos(periodo).data.map(r => ({ descricao: r.nome, cliente_nome: `${r.total} servicos`, valor: r.receita || 0, status: '' }))
+        : tipo === 'conversao'
+          ? this.conversao(periodo).data.map(r => ({ descricao: r.etapa, cliente_nome: `${r.total} leads`, valor: r.ticket_medio || 0, status: '' }))
+          : this.vendas(periodo).data;
       let total = 0;
       dados.forEach(r => {
-        total += r.valor;
-        doc.fontSize(10).text(`${r.descricao} | ${r.cliente_nome || '-'} | R$ ${r.valor.toFixed(2)} | ${r.status}`);
+        const valor = Number(r.valor || 0);
+        total += valor;
+        doc.fontSize(10).text(`${r.descricao || '-'} | ${r.cliente_nome || '-'} | R$ ${valor.toFixed(2)} | ${r.status || '-'}`);
       });
 
       doc.moveDown();
@@ -185,6 +203,12 @@ const RelatoriosService = {
       stream.on('finish', () => resolve({ success: true, path: result.filePath }));
       stream.on('error', reject);
     });
+  },
+
+  _periodo(data_inicio, data_fim) {
+    const hoje = new Date().toISOString().slice(0,10);
+    const inicioMes = hoje.slice(0,7) + '-01';
+    return { data_inicio: data_inicio || inicioMes, data_fim: data_fim || hoje };
   }
 };
 
