@@ -62,6 +62,16 @@ export default function ClientesPage() {
     } else toast(r.error||'Erro ao salvar','error');
   };
 
+  const handleDeleteCliente = async id => {
+    if(!confirm('Excluir este cliente? Os lançamentos, processos e documentos vinculados serão preservados.')) return;
+    const r = await api.crm.deleteClient(id);
+    if(r.success){
+      toast('Cliente excluído','info');
+      setDetailCliente(null);
+      setRefreshKey(k=>k+1);
+    } else toast(r.error||'Erro ao excluir cliente','error');
+  };
+
   const handleUpload = async data => {
     const r = await api.docs.upload({...data, cliente_id: detailCliente.id, processo_id: detailProcessoId||null});
     if(r.success){ toast('Documento enviado!','success'); setShowUpload(false); loadDetailDocs(detailCliente.id); }
@@ -134,6 +144,7 @@ export default function ClientesPage() {
           docs={detailDocs}
           onClose={()=>setDetailCliente(null)}
           onEdit={()=>{setEditingCliente(detailCliente);setShowModal(true);setDetailCliente(null);}}
+          onDelete={()=>handleDeleteCliente(detailCliente.id)}
           onUploadDoc={()=>setShowUpload(true)}
           onDocStatus={handleDocStatus}
           onDocDelete={handleDocDelete}
@@ -148,8 +159,10 @@ export default function ClientesPage() {
 
 function ClienteModal({ initial, onSave, onClose }) {
   const [form, setForm] = useState({tipo:'PF',nome:'',cpf_cnpj:'',rg:'',email:'',telefone:'',whatsapp:'',cep:'',logradouro:'',numero:'',complemento:'',bairro:'',cidade:'Ibiporã',estado:'PR',observacoes:'',...initial});
+  const [veiculo, setVeiculo] = useState(initial?.veiculos?.[0] || {marca:'',modelo:'',placa:'',renavam:''});
   const [emailErr, setEmailErr] = useState('');
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
+  const setV=(k,v)=>setVeiculo(f=>({...f,[k]:v}));
 
   const handleCpfChange = v => set('cpf_cnpj', form.tipo==='PF' ? maskCPF(v) : maskCNPJ(v));
   const handleEmailChange = v => { set('email',v); setEmailErr(v&&!validateEmail(v)?'E-mail inválido':''); };
@@ -168,7 +181,7 @@ function ClienteModal({ initial, onSave, onClose }) {
     e.preventDefault();
     if(!form.nome.trim()){ alert('Nome é obrigatório'); return; }
     if(form.email&&!validateEmail(form.email)){ alert('E-mail inválido'); return; }
-    onSave(form);
+    onSave({...form, veiculos:[veiculo]});
   };
 
   return (
@@ -258,6 +271,26 @@ function ClienteModal({ initial, onSave, onClose }) {
             <label className="form-label">Observações</label>
             <textarea className="form-textarea" value={form.observacoes} maxLength={500} onChange={e=>set('observacoes',e.target.value)}/>
           </div>
+          <div style={{marginTop:20,marginBottom:10,fontSize:11,fontWeight:700,color:'var(--text-muted)',letterSpacing:1}}>VEÍCULO</div>
+          <div className="form-grid form-grid-4" style={{gap:14}}>
+            <div className="form-group">
+              <label className="form-label">Marca</label>
+              <input className="form-input" value={veiculo.marca} maxLength={40} onChange={e=>setV('marca',e.target.value)}/>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Modelo</label>
+              <input className="form-input" value={veiculo.modelo} maxLength={60} onChange={e=>setV('modelo',e.target.value)}/>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Placa</label>
+              <input className="form-input" value={veiculo.placa} maxLength={8}
+                onChange={e=>setV('placa',e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,7).replace(/^([A-Z]{3})(.+)$/,'$1-$2'))}/>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Renavam</label>
+              <input className="form-input" value={veiculo.renavam} maxLength={11} inputMode="numeric" onChange={e=>setV('renavam',e.target.value.replace(/\D/g,'').slice(0,11))}/>
+            </div>
+          </div>
           <div className="modal-footer">
             <button type="button" className="btn btn-secondary" onClick={onClose}>Cancelar</button>
             <button type="submit" className="btn btn-primary">Salvar Cliente</button>
@@ -268,7 +301,7 @@ function ClienteModal({ initial, onSave, onClose }) {
   );
 }
 
-function ClienteDetail({ cliente, docs, onClose, onEdit, onUploadDoc, onDocStatus, onDocDelete, selectedProcessoId, onSelectProcesso }) {
+function ClienteDetail({ cliente, docs, onClose, onEdit, onDelete, onUploadDoc, onDocStatus, onDocDelete, selectedProcessoId, onSelectProcesso }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal modal-xl" onClick={e=>e.stopPropagation()} style={{maxHeight:'90vh'}}>
@@ -282,6 +315,7 @@ function ClienteDetail({ cliente, docs, onClose, onEdit, onUploadDoc, onDocStatu
           <div style={{display:'flex',gap:8}}>
             <button className="btn btn-primary btn-sm" onClick={onUploadDoc}><Icon name="upload" size={13}/> Documento</button>
             <button className="btn btn-secondary btn-sm" onClick={onEdit}><Icon name="edit" size={13}/> Editar</button>
+            <button className="btn btn-danger btn-sm" onClick={onDelete}><Icon name="trash" size={13}/> Excluir</button>
             <button className="btn btn-icon btn-ghost" onClick={onClose}><Icon name="x" size={18}/></button>
           </div>
         </div>
@@ -297,6 +331,15 @@ function ClienteDetail({ cliente, docs, onClose, onEdit, onUploadDoc, onDocStatu
             ))}
             {cliente.logradouro&&<div style={{fontSize:12,color:'var(--text-muted)',marginTop:8}}>{cliente.logradouro},{cliente.numero} — {cliente.bairro}, CEP {cliente.cep}</div>}
 
+            <div style={{fontSize:11,fontWeight:700,color:'var(--text-muted)',letterSpacing:1,marginTop:20,marginBottom:12}}>VEÍCULOS ({cliente.veiculos?.length||0})</div>
+            {(!cliente.veiculos||cliente.veiculos.length===0)&&<div style={{fontSize:12,color:'var(--text-muted)'}}>Nenhum veículo cadastrado</div>}
+            {(cliente.veiculos||[]).map(v=>(
+              <div key={v.id||v.placa} style={{padding:'8px 12px',background:'var(--bg-elevated)',borderRadius:'var(--radius)',marginBottom:6,fontSize:12}}>
+                <div style={{fontWeight:700,color:'var(--text-primary)'}}>{[v.marca,v.modelo].filter(Boolean).join(' ')||'Veículo'}</div>
+                <div style={{color:'var(--text-muted)',marginTop:2}}>Placa: {v.placa||'-'} · Renavam: {v.renavam||'-'}</div>
+              </div>
+            ))}
+
             {/* Processos */}
             <div style={{fontSize:11,fontWeight:700,color:'var(--text-muted)',letterSpacing:1,marginTop:20,marginBottom:12}}>PROCESSOS ({cliente.processos?.length||0})</div>
             {(!cliente.processos||cliente.processos.length===0)&&<div style={{fontSize:12,color:'var(--text-muted)'}}>Nenhum processo</div>}
@@ -308,6 +351,20 @@ function ClienteDetail({ cliente, docs, onClose, onEdit, onUploadDoc, onDocStatu
                   <span className={`badge ${p.status==='concluido'?'badge-green':p.status==='cancelado'?'badge-red':'badge-amber'}`}>{p.status}</span>
                 </div>
                 <div style={{fontSize:11,color:'var(--text-muted)',marginTop:2}}>{p.servico_nome} · {p.veiculo_placa}</div>
+              </div>
+            ))}
+
+            <div style={{fontSize:11,fontWeight:700,color:'var(--text-muted)',letterSpacing:1,marginTop:20,marginBottom:12}}>FINANCEIRO ({cliente.financeiro?.length||0})</div>
+            {(!cliente.financeiro||cliente.financeiro.length===0)&&<div style={{fontSize:12,color:'var(--text-muted)'}}>Nenhum lançamento vinculado</div>}
+            {(cliente.financeiro||[]).slice(0,6).map(l=>(
+              <div key={l.id} style={{padding:'8px 12px',background:'var(--bg-elevated)',borderRadius:'var(--radius)',marginBottom:6,fontSize:12,display:'flex',justifyContent:'space-between',gap:10}}>
+                <div>
+                  <div style={{fontWeight:600}}>{l.descricao}</div>
+                  <div style={{color:'var(--text-muted)',marginTop:2}}>{l.data_vencimento} · {l.status}</div>
+                </div>
+                <div style={{fontFamily:'Syne',fontWeight:800,color:l.tipo==='receita'?'var(--green)':'var(--red)'}}>
+                  {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(l.valor||0)}
+                </div>
               </div>
             ))}
           </div>

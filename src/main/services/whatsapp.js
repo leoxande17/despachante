@@ -1,6 +1,8 @@
 // src/main/services/whatsapp.js
 const DatabaseService = require('./database');
 const LogService = require('./log');
+const SettingsService = require('./settings');
+const { v4: uuidv4 } = require('uuid');
 
 let whatsappStatus = 'disconnected';
 let _sock = null;
@@ -101,6 +103,44 @@ const WhatsAppService = {
       'SELECT * FROM whatsapp_templates WHERE ativo=1 ORDER BY nome'
     ).all();
     return { success: true, data: templates };
+  },
+
+  createTemplate({ nome, categoria, mensagem }) {
+    if (!String(nome || '').trim()) return { success: false, error: 'Nome obrigatório' };
+    if (!String(mensagem || '').trim()) return { success: false, error: 'Mensagem obrigatória' };
+    const id = uuidv4();
+    this.db().prepare(`
+      INSERT INTO whatsapp_templates (id, nome, categoria, mensagem, ativo)
+      VALUES (?, ?, ?, ?, 1)
+    `).run(id, String(nome).slice(0, 80), String(categoria || '').slice(0, 40), String(mensagem).slice(0, 1000));
+    return { success: true, id };
+  },
+
+  updateTemplate({ id, nome, categoria, mensagem, ativo = 1 }) {
+    this.db().prepare(`
+      UPDATE whatsapp_templates SET nome=?, categoria=?, mensagem=?, ativo=? WHERE id=?
+    `).run(String(nome || '').slice(0, 80), String(categoria || '').slice(0, 40), String(mensagem || '').slice(0, 1000), ativo ? 1 : 0, id);
+    return { success: true };
+  },
+
+  deleteTemplate(id) {
+    this.db().prepare('UPDATE whatsapp_templates SET ativo=0 WHERE id=?').run(id);
+    return { success: true };
+  },
+
+  getFlows() {
+    const defaults = [
+      { id: 'boas_vindas', nome: 'Boas-vindas', desc: 'Enviado ao primeiro contato de um novo número', ativo: true },
+      { id: 'coleta_dados', nome: 'Coleta de Dados', desc: 'Solicita CPF, placa e serviço automaticamente', ativo: true },
+      { id: 'lembrete_vencimento', nome: 'Lembrete de Vencimento', desc: 'Avisa sobre licenciamento próximo ao vencimento', ativo: false },
+    ];
+    const saved = SettingsService.get('whatsappFlows').data;
+    return { success: true, data: Array.isArray(saved) ? saved : defaults };
+  },
+
+  saveFlows(flows) {
+    SettingsService.set('whatsappFlows', Array.isArray(flows) ? flows : []);
+    return { success: true };
   },
 
   getStatus() {

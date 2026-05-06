@@ -54,6 +54,9 @@ export default function RelatoriosPage() {
   const totalReceita = relData?.vendasMes?.reduce((s,m)=>s+m.valor,0)||0;
   const totalServicos = relData?.servicosTop?.reduce((s,t)=>s+t.total,0)||0;
   const ticketMedio = relData?.leadsConversao?.fechados>0 ? totalReceita/relData.leadsConversao.fechados : 0;
+  const etapaLabels = {novo:'Novo',em_atendimento:'Em Atendimento',proposta:'Proposta',negociacao:'Negociação',fechado:'Fechado',perdido:'Perdido'};
+  const etapasKanban = relData?.leadsConversao?.etapas || [];
+  const maxEtapa = Math.max(...etapasKanban.map(e=>e.total), 1);
 
   return (
     <div>
@@ -160,22 +163,20 @@ export default function RelatoriosPage() {
 
           {!loading&&tab==='conversao'&&relData?.leadsConversao&&(
             <div style={{display:'flex',flexDirection:'column',gap:14}}>
-              {[
-                {label:'Leads Captados',  value:relData.leadsConversao.total,                                     pct:100,                          color:'var(--blue)'},
-                {label:'Em Atendimento',  value:Math.round(relData.leadsConversao.total*0.75),                    pct:75,                           color:'#a855f7'},
-                {label:'Com Proposta',    value:Math.round(relData.leadsConversao.total*0.60),                    pct:60,                           color:'var(--accent)'},
-                {label:'Convertidos',     value:relData.leadsConversao.fechados,                                  pct:relData.leadsConversao.taxa,   color:'var(--green)'},
-              ].map(f=>(
-                <div key={f.label}>
+              {(etapasKanban.length ? etapasKanban : [{etapa:'novo',total:0}]).map((e,i)=>{
+                const colors=['var(--blue)','#a855f7','var(--accent)','var(--green)','var(--red)'];
+                const pct=Math.round((e.total/maxEtapa)*100);
+                return (
+                <div key={e.etapa}>
                   <div style={{display:'flex',justifyContent:'space-between',marginBottom:6,fontSize:13}}>
-                    <span>{f.label}</span>
-                    <span style={{fontWeight:700,color:f.color}}>{f.value} ({f.pct}%)</span>
+                    <span>{etapaLabels[e.etapa]||e.etapa}</span>
+                    <span style={{fontWeight:700,color:colors[i%colors.length]}}>{e.total} ({pct}%)</span>
                   </div>
                   <div style={{height:10,background:'var(--bg-elevated)',borderRadius:4,overflow:'hidden'}}>
-                    <div style={{height:'100%',width:`${f.pct}%`,background:f.color,borderRadius:4,transition:'width 0.5s ease'}}/>
+                    <div style={{height:'100%',width:`${pct}%`,background:colors[i%colors.length],borderRadius:4,transition:'width 0.5s ease'}}/>
                   </div>
                 </div>
-              ))}
+              )})}
             </div>
           )}
         </div>

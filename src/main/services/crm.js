@@ -6,6 +6,14 @@ const LogService = require('./log');
 const CRMService = {
   db() { return DatabaseService.getDB(); },
 
+  normalizeSearch(value) {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^\w]/g, '')
+      .toLowerCase();
+  },
+
   // ─── LEADS ────────────────────────────────────────────
   getLeads(filters = {}) {
     let sql = `
@@ -140,18 +148,18 @@ const CRMService = {
 
   // ─── CLIENTES ─────────────────────────────────────────
   getClients(filters = {}) {
-    let sql = 'SELECT * FROM clientes WHERE ativo=1';
-    const params = [];
+    let clients = this.db().prepare('SELECT * FROM clientes WHERE ativo=1 ORDER BY nome ASC').all();
 
     if (filters.search) {
-      sql += ' AND (nome LIKE ? OR cpf_cnpj LIKE ? OR telefone LIKE ?)';
-      const s = `%${filters.search}%`;
-      params.push(s, s, s);
+      const term = this.normalizeSearch(filters.search);
+      clients = clients.filter(c => {
+        const haystack = [
+          c.nome, c.cpf_cnpj, c.telefone, c.whatsapp, c.email, c.cidade
+        ].map(v => this.normalizeSearch(v)).join(' ');
+        return haystack.includes(term);
+      });
     }
 
-    sql += ' ORDER BY nome ASC';
-
-    const clients = this.db().prepare(sql).all(...params);
     return { success: true, data: clients };
   },
 
@@ -167,7 +175,19 @@ const CRMService = {
       ORDER BY p.criado_em DESC
     `).all(id);
 
-    return { success: true, data: { ...client, processos } };
+    const veiculos = this.db().prepare(`
+      SELECT * FROM cliente_veiculos WHERE cliente_id = ? ORDER BY criado_em DESC
+    `).all(id);
+
+    const financeiro = this.db().prepare(`
+      SELECT l.*, p.numero as processo_numero
+      FROM lancamentos l
+      LEFT JOIN processos p ON l.processo_id = p.id
+      WHERE l.cliente_id = ?
+      ORDER BY l.data_vencimento DESC
+    `).all(id);
+
+    return { success: true, data: { ...client, processos, veiculos, financeiro } };
   },
 
   createClient(data) {
@@ -185,6 +205,7 @@ const CRMService = {
       data.estado || 'PR', data.observacoes
     );
 
+    this._replaceVeiculos(id, data.veiculos || []);
     LogService.info('Cliente criado', { id, nome: data.nome });
     return { success: true, id };
   },
@@ -202,7 +223,34 @@ const CRMService = {
       data.complemento, data.bairro, data.cidade, data.estado,
       data.observacoes, data.id
     );
+    this._replaceVeiculos(data.id, data.veiculos || []);
     return { success: true };
+  },
+
+  deleteClient(id) {
+    const client = this.db().prepare('SELECT id FROM clientes WHERE id=?').get(id);
+    if (!client) return { success: false, error: 'Cliente não encontrado' };
+
+    this.db().prepare(`
+      UPDATE clientes SET ativo=0, atualizado_em=datetime('now') WHERE id=?
+    `).run(id);
+    LogService.info('Cliente desativado', { id });
+    return { success: true };
+  },
+
+  _replaceVeiculos(clienteId, veiculos = []) {
+    this.db().prepare('DELETE FROM cliente_veiculos WHERE cliente_id=?').run(clienteId);
+    veiculos
+      .filter(v => v && (v.marca || v.modelo || v.placa || v.renavam))
+      .forEach(v => {
+        this.db().prepare(`
+          INSERT INTO cliente_veiculos (id, cliente_id, marca, modelo, placa, renavam)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `).run(
+          uuidv4(), clienteId, v.marca || null, v.modelo || null,
+          v.placa || null, v.renavam || null
+        );
+      });
   },
 
   search(query) {
@@ -215,25 +263,29 @@ const CRMService = {
       LIMIT 5
     `).all(s, s, s, s);
 
-    const clientes = this.db().prepare(`
-      SELECT 'cliente' as tipo, id, nome, telefone, '' as status FROM clientes
-      WHERE nome LIKE ? OR cpf_cnpj LIKE ? OR telefone LIKE ? OR whatsapp LIKE ?
-      LIMIT 5
-    `).all(s, s, s, s);
+    const clientes = this.getClients({ search: query }).data
+      .slice(0, 5)
+      .map(c => ({ tipo: 'cliente', id: c.id, nome: c.nome, telefone: c.telefone, status: '' }));
 
     return { success: true, data: [...leads, ...clientes] };
   },
 
   // ─── PROCESSOS ────────────────────────────────────────
   getProcessos(clienteId) {
-    const processos = this.db().prepare(`
+    let sql = `
       SELECT p.*, s.nome as servico_nome, c.nome as cliente_nome
       FROM processos p
       LEFT JOIN servicos_catalogo s ON p.servico_id = s.id
       LEFT JOIN clientes c ON p.cliente_id = c.id
-      WHERE p.cliente_id = ?
-      ORDER BY p.criado_em DESC
-    `).all(clienteId);
+      WHERE c.ativo = 1
+    `;
+    const params = [];
+    if (clienteId) {
+      sql += ' AND p.cliente_id = ?';
+      params.push(clienteId);
+    }
+    sql += ' ORDER BY p.criado_em DESC';
+    const processos = this.db().prepare(sql).all(...params);
     return { success: true, data: processos };
   },
 

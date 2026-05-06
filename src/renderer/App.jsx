@@ -127,9 +127,10 @@ function createMockAPI() {
         if(f.search){const q=f.search.toLowerCase();d=d.filter(c=>c.nome?.toLowerCase().includes(q)||c.cpf_cnpj?.includes(q)||c.telefone?.includes(q));}
         return{success:true,data:d};
       },
-      getClient:async(id)=>{const c=clientes.find(c=>c.id===id);if(!c)return{success:false,error:'Não encontrado'};return{success:true,data:{...c,processos:processos.filter(p=>p.cliente_id===id)}};},
+      getClient:async(id)=>{const c=clientes.find(c=>c.id===id);if(!c)return{success:false,error:'Não encontrado'};return{success:true,data:{...c,processos:processos.filter(p=>p.cliente_id===id),veiculos:c.veiculos||[],financeiro:lancamentos.filter(l=>l.cliente_id===id)}};},
       createClient:async(d)=>{const n={id:genId(),criado_em:new Date().toISOString(),...d};clientes=[...clientes,n];return{success:true,id:n.id,data:n};},
       updateClient:async(d)=>{clientes=clientes.map(c=>c.id===d.id?{...c,...d}:c);return{success:true};},
+      deleteClient:async(id)=>{clientes=clientes.filter(c=>c.id!==id);return{success:true};},
       search:async(q)=>{
         if(!q||q.length<2)return{success:true,data:[]};
         const t=q.toLowerCase();
@@ -140,6 +141,7 @@ function createMockAPI() {
     },
     processo:{
       list:async(clienteId)=>({success:true,data:processos.filter(p=>p.cliente_id===clienteId)}),
+      listAll:async()=>({success:true,data:processos}),
       create:async(d)=>{
         const seq=processos.length+1;
         const numero=`${new Date().getFullYear()}-${String(seq).padStart(4,'0')}`;
@@ -153,7 +155,7 @@ function createMockAPI() {
     docs:{
       upload:async(d)=>{const n={id:genId(),criado_em:new Date().toISOString(),status:'pendente',...d,nome_original:d.nome_original||d.file_path?.split(/[\\/]/).pop()||'arquivo.pdf',mime_type:'application/pdf',tamanho:102400};documentos=[...documentos,n];return{success:true,id:n.id};},
       list:async(processoId)=>({success:true,data:documentos.filter(d=>d.processo_id===processoId)}),
-      listByCliente:async(clienteId)=>({success:true,data:documentos.filter(d=>d.cliente_id===clienteId)}),
+      listByCliente:async(clienteId,filters={})=>({success:true,data:documentos.filter(d=>d.cliente_id===clienteId&&(!filters.processo_id||d.processo_id===filters.processo_id))}),
       delete:async(id)=>{documentos=documentos.filter(d=>d.id!==id);return{success:true};},
       updateStatus:async({id,status})=>{documentos=documentos.map(d=>d.id===id?{...d,status}:d);return{success:true};},
       open:async()=>{},
@@ -254,6 +256,15 @@ function createMockAPI() {
         {id:'t2',nome:'Proposta',   categoria:'comercial',  mensagem:'Olá, {{nome}}! Segue proposta: {{servico}} — R$ {{valor}}'},
         {id:'t3',nome:'Confirmação',categoria:'financeiro', mensagem:'Pagamento confirmado! ✅ Processo nº {{processo}}'},
       ]}),
+      createTemplate:async(d)=>({success:true,id:genId(),data:d}),
+      updateTemplate:async()=>({success:true}),
+      deleteTemplate:async()=>({success:true}),
+      getFlows:async()=>({success:true,data:JSON.parse(localStorage.getItem('dp_settings_whatsappFlows')||'null')||[
+        {id:'boas_vindas',nome:'Boas-vindas',desc:'Enviado ao primeiro contato de um novo número',ativo:true},
+        {id:'coleta_dados',nome:'Coleta de Dados',desc:'Solicita CPF, placa e serviço automaticamente',ativo:true},
+        {id:'lembrete_vencimento',nome:'Lembrete de Vencimento',desc:'Avisa sobre licenciamento próximo ao vencimento',ativo:false},
+      ]}),
+      saveFlows:async(flows)=>{localStorage.setItem('dp_settings_whatsappFlows',JSON.stringify(flows));return{success:true};},
       getStatus:async()=>({success:true,status:'disconnected'}),
       disconnect:async()=>({success:true}),
       onQR:()=>{},onReady:()=>{},onMessage:()=>{},
@@ -295,7 +306,13 @@ export default function App() {
 
   const addToast=(message,type='info',duration=3500)=>{const id=Date.now();setToasts(t=>[...t,{id,message,type}]);setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==id)),duration);};
   const handleLogin=(d)=>{localStorage.setItem('dp_token',d.token);setSession(d);};
-  const handleLogout=async()=>{await api.auth.logout(session.token);localStorage.removeItem('dp_token');setSession(null);};
+  const handleLogout=async()=>{
+    const token = session?.token;
+    localStorage.removeItem('dp_token');
+    setCurrentPage('dashboard');
+    setSession(null);
+    if(token) await api.auth.logout(token);
+  };
 
   if(loading)return(<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',background:'#0e0f11'}}><div style={{textAlign:'center'}}><div style={{fontSize:28,fontFamily:'Syne,sans-serif',fontWeight:800,color:'#f0a500'}}>DespachaPR</div><div style={{color:'#4a4f5c',fontSize:13,marginTop:8}}>Carregando...</div></div></div>);
 

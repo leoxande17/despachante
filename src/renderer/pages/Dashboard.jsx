@@ -31,7 +31,7 @@ export default function Dashboard() {
 
   if (loading) return <div className="empty-state">Carregando dashboard...</div>;
 
-  const maxVal = relData?.vendasMes ? Math.max(...relData.vendasMes.map(v => v.valor)) : 1;
+  const maxVal = relData?.vendasMes ? Math.max(...relData.vendasMes.map(v => v.valor), 1) : 1;
 
   return (
     <div>
@@ -99,7 +99,7 @@ export default function Dashboard() {
               }} />
             ))}
             {(relData?.vendasMes || []).map((m, i) => {
-              const h = Math.round((m.valor / maxVal) * 136);
+              const h = m.valor > 0 ? Math.max(8, Math.round((m.valor / maxVal) * 136)) : 0;
               return (
                 <div key={m.mes} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, position: 'relative' }}>
                   <div style={{

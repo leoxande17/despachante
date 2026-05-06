@@ -5,14 +5,15 @@ const DatabaseService = require('./database');
 const CaixaService = {
   db() { return DatabaseService.getDB(); },
 
-  abrir({ usuario_id, valor_inicial }) {
+  abrir({ usuario_id, valor_inicial, data_abertura }) {
     const aberto = this.db().prepare("SELECT id FROM caixas WHERE status='aberto'").get();
     if (aberto) return { success: false, error: 'Já existe um caixa aberto' };
     const id = uuidv4();
+    const dataAbertura = data_abertura ? `${data_abertura} 00:00:00` : new Date().toISOString();
     this.db().prepare(`
       INSERT INTO caixas (id, usuario_id, data_abertura, valor_inicial, status)
-      VALUES (?, ?, datetime('now'), ?, 'aberto')
-    `).run(id, usuario_id || 'system', valor_inicial || 0);
+      VALUES (?, ?, ?, ?, 'aberto')
+    `).run(id, usuario_id || 'system', dataAbertura, valor_inicial || 0);
     return { success: true, id };
   },
 

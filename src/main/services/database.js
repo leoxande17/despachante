@@ -106,10 +106,35 @@ const DatabaseService = {
       await this.migration_v1();
       db.prepare('INSERT INTO schema_version (version) VALUES (?)').run(1);
     }
+
+    if (currentVersion < 2) {
+      await this.migration_v2();
+      db.prepare('INSERT INTO schema_version (version) VALUES (?)').run(2);
+    }
   },
 
   async migration_v1() {
     db.exec(SCHEMA_SQL);
+  },
+
+  async migration_v2() {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS cliente_veiculos (
+        id TEXT PRIMARY KEY,
+        cliente_id TEXT NOT NULL,
+        marca TEXT,
+        modelo TEXT,
+        placa TEXT,
+        renavam TEXT,
+        criado_em TEXT DEFAULT (datetime('now')),
+        atualizado_em TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (cliente_id) REFERENCES clientes(id)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_cliente_veiculos_cliente ON cliente_veiculos(cliente_id);
+      CREATE INDEX IF NOT EXISTS idx_cliente_veiculos_placa ON cliente_veiculos(placa);
+      CREATE INDEX IF NOT EXISTS idx_documentos_cliente ON documentos(cliente_id);
+    `);
   },
 
   backup(outputPath) {

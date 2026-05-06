@@ -111,17 +111,19 @@ function setupIpcHandlers() {
   ipcMain.handle('crm:getClient', (_, id) => CRMService.getClient(id));
   ipcMain.handle('crm:createClient', (_, data) => CRMService.createClient(data));
   ipcMain.handle('crm:updateClient', (_, data) => CRMService.updateClient(data));
+  ipcMain.handle('crm:deleteClient', (_, id) => CRMService.deleteClient(id));
   ipcMain.handle('crm:search', (_, query) => CRMService.search(query));
 
   // Processos
   ipcMain.handle('processo:list', (_, clienteId) => CRMService.getProcessos(clienteId));
+  ipcMain.handle('processo:listAll', (_, filters) => CRMService.getProcessos(filters?.cliente_id || filters));
   ipcMain.handle('processo:create', (_, data) => CRMService.createProcesso(data));
   ipcMain.handle('processo:update', (_, data) => CRMService.updateProcesso(data));
 
   // Documentos
   ipcMain.handle('docs:upload', (_, data) => DocumentosService.upload(data));
   ipcMain.handle('docs:list', (_, processoId) => DocumentosService.list(processoId));
-  ipcMain.handle('docs:listByCliente', (_, clienteId) => DocumentosService.listByCliente(clienteId));
+  ipcMain.handle('docs:listByCliente', (_, clienteId, filters) => DocumentosService.listByCliente(clienteId, filters));
   ipcMain.handle('docs:delete', (_, id) => DocumentosService.delete(id));
   ipcMain.handle('docs:updateStatus', (_, data) => DocumentosService.updateStatus(data));
   ipcMain.handle('docs:open', (_, id) => DocumentosService.openFile(id));
@@ -200,6 +202,11 @@ function setupIpcHandlers() {
   ipcMain.handle('whatsapp:init', () => WhatsAppService.initialize(mainWindow));
   ipcMain.handle('whatsapp:sendMessage', (_, data) => WhatsAppService.sendMessage(data));
   ipcMain.handle('whatsapp:getTemplates', () => WhatsAppService.getTemplates());
+  ipcMain.handle('whatsapp:createTemplate', (_, data) => WhatsAppService.createTemplate(data));
+  ipcMain.handle('whatsapp:updateTemplate', (_, data) => WhatsAppService.updateTemplate(data));
+  ipcMain.handle('whatsapp:deleteTemplate', (_, id) => WhatsAppService.deleteTemplate(id));
+  ipcMain.handle('whatsapp:getFlows', () => WhatsAppService.getFlows());
+  ipcMain.handle('whatsapp:saveFlows', (_, flows) => WhatsAppService.saveFlows(flows));
   ipcMain.handle('whatsapp:getStatus', () => WhatsAppService.getStatus());
   ipcMain.handle('whatsapp:disconnect', () => WhatsAppService.disconnect());
 

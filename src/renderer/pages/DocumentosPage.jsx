@@ -28,25 +28,29 @@ export default function DocumentosPage() {
   const [docs, setDocs]             = useState([]);
   const [loading, setLoading]       = useState(false);
   const [showUpload, setShowUpload] = useState(false);
+  const [showProcesso, setShowProcesso] = useState(false);
+  const [servicos, setServicos] = useState([]);
 
   useEffect(() => {
     api.crm.getClients({}).then(r => { if (r.success) setClientes(r.data); });
+    api.nf.getServicos().then(r => { if (r.success) setServicos(r.data); });
   }, []);
 
   useEffect(() => {
     setProcessoId(''); setDocs([]);
     if (!clienteId) { setProcessos([]); return; }
     api.processo.list(clienteId).then(r => { if (r.success) setProcessos(r.data); });
+    loadDocs(clienteId, '');
   }, [clienteId]);
 
   useEffect(() => {
-    if (!processoId) { setDocs([]); return; }
-    loadDocs();
+    if (clienteId) loadDocs(clienteId, processoId);
   }, [processoId]);
 
-  const loadDocs = () => {
+  const loadDocs = (cid = clienteId, pid = processoId) => {
+    if(!cid) return;
     setLoading(true);
-    api.docs.list(processoId).then(r => {
+    api.docs.listByCliente(cid, pid ? {processo_id: pid} : {}).then(r => {
       if (r.success) setDocs(r.data);
       setLoading(false);
     });
@@ -68,6 +72,17 @@ export default function DocumentosPage() {
     await api.docs.delete(id);
     toast('Documento removido', 'info');
     loadDocs();
+  };
+
+  const handleCreateProcesso = async data => {
+    const res = await api.processo.create(data);
+    if(res.success){
+      toast('Processo criado!','success');
+      setShowProcesso(false);
+      setClienteId(data.cliente_id);
+      const p = await api.processo.list(data.cliente_id);
+      if(p.success) setProcessos(p.data);
+    } else toast(res.error||'Erro ao criar processo','error');
   };
 
   const [docsDir, setDocsDir] = useState(null);
@@ -96,11 +111,14 @@ export default function DocumentosPage() {
           <button className="btn btn-secondary btn-sm" onClick={handleSelectDirectory} title="Selecionar diretório">
             <Icon name="folder" size={14}/> {docsDir ? 'Alterar Dir' : 'Selecionar Dir'}
           </button>
-          {processoId && (
+          {clienteId && (
             <button className="btn btn-primary" onClick={() => setShowUpload(true)}>
               <Icon name="upload" size={15} /> Enviar Documento
             </button>
           )}
+          <button className="btn btn-secondary" onClick={() => setShowProcesso(true)}>
+            <Icon name="plus" size={15} /> Novo Processo
+          </button>
         </div>
       </div>
 
@@ -117,7 +135,7 @@ export default function DocumentosPage() {
           <div className="form-group">
             <label className="form-label">Processo</label>
             <select className="form-select" value={processoId} onChange={e => setProcessoId(e.target.value)} disabled={!clienteId}>
-              <option value="">— Selecione o processo —</option>
+              <option value="">Todos os processos</option>
               {processos.map(p => (
                 <option key={p.id} value={p.id}>{p.numero} — {p.servico_nome || p.veiculo_placa || 'Processo'}</option>
               ))}
@@ -134,7 +152,7 @@ export default function DocumentosPage() {
         </div>
       )}
 
-      {clienteId && !processoId && processos.length > 0 && (
+      {false && clienteId && !processoId && processos.length > 0 && (
         <div className="card">
           <h3 style={{ marginBottom: 16 }}>Selecione um processo</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
@@ -149,14 +167,14 @@ export default function DocumentosPage() {
         </div>
       )}
 
-      {clienteId && !processoId && processos.length === 0 && clienteId && (
+      {false && clienteId && !processoId && processos.length === 0 && clienteId && (
         <div className="empty-state" style={{ marginTop: 40 }}>
           <Icon name="file" size={48} />
           <p>Nenhum processo encontrado para este cliente</p>
         </div>
       )}
 
-      {processoId && (
+      {clienteId && (
         <>
           {/* Chips de tipo */}
           <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
@@ -239,6 +257,69 @@ export default function DocumentosPage() {
       {showUpload && (
         <UploadModal onUpload={handleUpload} onClose={() => setShowUpload(false)} />
       )}
+      {showProcesso && (
+        <ProcessoModal clientes={clientes} servicos={servicos} clienteId={clienteId} onSave={handleCreateProcesso} onClose={() => setShowProcesso(false)} />
+      )}
+    </div>
+  );
+}
+
+function ProcessoModal({ clientes, servicos, clienteId, onSave, onClose }) {
+  const [form, setForm] = useState({
+    cliente_id: clienteId || '',
+    servico_id: '',
+    veiculo_placa: '',
+    veiculo_renavam: '',
+    veiculo_modelo: '',
+    descricao: '',
+    valor: '',
+  });
+  const set=(k,v)=>setForm(f=>({...f,[k]:v}));
+
+  const handleSubmit = e => {
+    e.preventDefault();
+    if(!form.cliente_id){ alert('Selecione um cliente'); return; }
+    onSave({...form, valor: parseFloat(String(form.valor).replace(/\./g,'').replace(',','.')) || 0});
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal modal-lg" onClick={e=>e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>Novo Processo</h3>
+          <button className="btn btn-icon btn-ghost" onClick={onClose}><Icon name="x" size={18}/></button>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div className="form-grid form-grid-2" style={{gap:14}}>
+            <div className="form-group">
+              <label className="form-label">Cliente *</label>
+              <select className="form-select" required value={form.cliente_id} onChange={e=>set('cliente_id',e.target.value)}>
+                <option value="">Selecione</option>
+                {clientes.map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Serviço</label>
+              <select className="form-select" value={form.servico_id} onChange={e=>set('servico_id',e.target.value)}>
+                <option value="">Selecione</option>
+                {servicos.map(s=><option key={s.id} value={s.id}>{s.nome}</option>)}
+              </select>
+            </div>
+            <div className="form-group"><label className="form-label">Placa</label><input className="form-input" value={form.veiculo_placa} maxLength={8} onChange={e=>set('veiculo_placa',e.target.value.toUpperCase())}/></div>
+            <div className="form-group"><label className="form-label">Renavam</label><input className="form-input" value={form.veiculo_renavam} maxLength={11} onChange={e=>set('veiculo_renavam',e.target.value.replace(/\D/g,''))}/></div>
+            <div className="form-group"><label className="form-label">Modelo</label><input className="form-input" value={form.veiculo_modelo} maxLength={60} onChange={e=>set('veiculo_modelo',e.target.value)}/></div>
+            <div className="form-group"><label className="form-label">Valor</label><input className="form-input" value={form.valor} maxLength={14} onChange={e=>set('valor',e.target.value.replace(/[^\d,.]/g,''))}/></div>
+          </div>
+          <div className="form-group" style={{marginTop:14}}>
+            <label className="form-label">Descrição</label>
+            <textarea className="form-textarea" value={form.descricao} maxLength={500} onChange={e=>set('descricao',e.target.value)}/>
+          </div>
+          <div className="modal-footer">
+            <button type="button" className="btn btn-secondary" onClick={onClose}>Cancelar</button>
+            <button type="submit" className="btn btn-primary">Criar Processo</button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

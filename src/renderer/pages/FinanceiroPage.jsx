@@ -7,6 +7,14 @@ const fmt = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}
 const fmtDate = d => d ? new Date(d+'T00:00:00').toLocaleDateString('pt-BR') : '-';
 const STATUS_BADGE = {pendente:'badge-amber',pago:'badge-green',atrasado:'badge-red',cancelado:'badge-gray'};
 const FORMAS = ['dinheiro','pix','cartao_debito','cartao_credito','boleto','transferencia'];
+const FORMA_LABEL = {
+  dinheiro:'Dinheiro',
+  pix:'Pix',
+  cartao_debito:'Cartão Débito',
+  cartao_credito:'Cartão Crédito',
+  boleto:'Boleto',
+  transferencia:'Transferência',
+};
 const CATS_RECEITA = ['Serviços de Despachante','Taxas Repassadas','Outros'];
 const CATS_DESPESA = ['Aluguel','Utilities','Material','Software','Pessoal','Impostos','Outros'];
 
@@ -29,14 +37,13 @@ export default function FinanceiroPage() {
   const [editingLanc, setEditingLanc] = useState(null);
   const [pagModal, setPagModal] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [sort, setSort] = useState({key:'data_vencimento', dir:'asc'});
 
   const loadAll = useCallback(async () => {
     setLoading(true);
-    const tipo = tab === 'receber' ? 'receber' : tab === 'pagar' ? 'pagar' : 'inadimplentes';
     const [res, dash] = await Promise.all([
       tab === 'receber'       ? api.financeiro.getContasReceber()  :
-      tab === 'pagar'         ? api.financeiro.getContasPagar()    :
-                                api.financeiro.getInadimplentes(),
+                                api.financeiro.getContasPagar(),
       api.financeiro.getDashboard()
     ]);
     if(res.success)  setLancamentos(res.data);
@@ -47,6 +54,11 @@ export default function FinanceiroPage() {
   useEffect(() => { loadAll(); }, [loadAll]);
 
   const refresh = () => setRefreshKey(k=>k+1);
+  const toggleSort = key => setSort(s => ({ key, dir: s.key === key && s.dir === 'asc' ? 'desc' : 'asc' }));
+  const sortedLancamentos = [...lancamentos].sort((a,b) => {
+    const result = String(a[sort.key] ?? '').localeCompare(String(b[sort.key] ?? ''), 'pt-BR', { numeric:true, sensitivity:'base' });
+    return sort.dir === 'asc' ? result : -result;
+  });
 
   const handleSave = async data => {
     let r;
@@ -96,7 +108,6 @@ export default function FinanceiroPage() {
         {[
           {id:'receber',      label:'A Receber'},
           {id:'pagar',        label:'A Pagar'},
-          {id:'inadimplentes',label:`Inadimplentes${dashboard?.inadimplentes>0?` (${dashboard.inadimplentes})`:''}`},
         ].map(t=>(
           <button key={t.id} className={`tab-btn ${tab===t.id?'active':''}`} onClick={()=>setTab(t.id)}>{t.label}</button>
         ))}
@@ -107,12 +118,19 @@ export default function FinanceiroPage() {
         <div className="table-wrap">
           <table className="table">
             <thead>
-              <tr><th>Descrição</th><th>Cliente</th><th>Vencimento</th><th>Valor</th><th>Status</th><th>Forma Pag.</th><th></th></tr>
+              <tr>
+                {[['descricao','Descrição'],['cliente_nome','Cliente'],['data_vencimento','Vencimento'],['valor','Valor'],['status','Status'],['data_pagamento','Data Pagamento'],['forma_pagamento','Forma Pag.']].map(([key,label])=>(
+                  <th key={key} style={{cursor:'pointer'}} onClick={()=>toggleSort(key)}>
+                    {label} {sort.key===key ? (sort.dir==='asc'?'↑':'↓') : ''}
+                  </th>
+                ))}
+                <th></th>
+              </tr>
             </thead>
             <tbody>
-              {loading&&<tr><td colSpan={7} style={{textAlign:'center',color:'var(--text-muted)',padding:32}}>Carregando...</td></tr>}
-              {!loading&&lancamentos.length===0&&<tr><td colSpan={7} style={{textAlign:'center',color:'var(--text-muted)',padding:32}}>Nenhum lançamento</td></tr>}
-              {lancamentos.map(l=>(
+              {loading&&<tr><td colSpan={8} style={{textAlign:'center',color:'var(--text-muted)',padding:32}}>Carregando...</td></tr>}
+              {!loading&&lancamentos.length===0&&<tr><td colSpan={8} style={{textAlign:'center',color:'var(--text-muted)',padding:32}}>Nenhum lançamento</td></tr>}
+              {sortedLancamentos.map(l=>(
                 <tr key={l.id}>
                   <td style={{color:'var(--text-primary)',fontWeight:500}}>{l.descricao}</td>
                   <td>{l.cliente_nome||'-'}</td>
@@ -121,7 +139,8 @@ export default function FinanceiroPage() {
                     {l.tipo==='receita'?'+':'-'}{fmt(l.valor)}
                   </td>
                   <td><span className={`badge ${STATUS_BADGE[l.status]||'badge-gray'}`}>{l.status}</span></td>
-                  <td style={{fontSize:12}}>{l.data_pagamento?`${fmtDate(l.data_pagamento)} · ${l.forma_pagamento}`:'-'}</td>
+                  <td>{fmtDate(l.data_pagamento)}</td>
+                  <td style={{fontSize:12}}>{l.forma_pagamento ? FORMA_LABEL[l.forma_pagamento] || l.forma_pagamento : '-'}</td>
                   <td>
                     <div style={{display:'flex',gap:4}}>
                       {(l.status==='pendente'||l.status==='atrasado')&&(
@@ -167,21 +186,25 @@ export default function FinanceiroPage() {
 
 function LancamentoModal({ initial, tipo, onSave, onClose }) {
   const cats = tipo==='receita' ? CATS_RECEITA : CATS_DESPESA;
+  const [clientes, setClientes] = useState([]);
   const [form, setForm] = useState({
     categoria: cats[0],
     descricao:'',
     valor:'',
     data_vencimento: new Date().toISOString().slice(0,10),
+    cliente_id:'',
     observacoes:'',
     ...initial,
     valor: initial?.valor ? initial.valor.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '',
   });
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
 
+  useEffect(()=>{ api.crm.getClients({}).then(r=>{ if(r.success) setClientes(r.data); }); },[]);
+
   const handleSubmit = e => {
     e.preventDefault();
     const valor = parseMoney(form.valor);
-    if(valor<=0){ alert('Informe um valor válido'); return; }
+    if(valor<=0 || valor>99999999.99){ alert('Informe um valor válido até 99.999.999,99'); return; }
     onSave({...form, valor});
   };
 
@@ -202,13 +225,20 @@ function LancamentoModal({ initial, tipo, onSave, onClose }) {
             </div>
             <div className="form-group">
               <label className="form-label">Descrição *</label>
-              <input className="form-input" required value={form.descricao} maxLength={200}
+              <input className="form-input" required value={form.descricao} maxLength={120}
                 onChange={e=>set('descricao',e.target.value)} placeholder="Descreva o lançamento"/>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Cliente</label>
+              <select className="form-select" value={form.cliente_id||''} onChange={e=>set('cliente_id',e.target.value)}>
+                <option value="">Sem cliente vinculado</option>
+                {clientes.map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
             </div>
             <div className="form-grid form-grid-2" style={{gap:14}}>
               <div className="form-group">
                 <label className="form-label">Valor (R$) *</label>
-                <input className="form-input" required value={form.valor} inputMode="numeric"
+                <input className="form-input" required value={form.valor} inputMode="numeric" maxLength={14}
                   onChange={e=>set('valor',maskMoney(e.target.value))} placeholder="0,00"
                   style={{fontFamily:'monospace'}}/>
               </div>

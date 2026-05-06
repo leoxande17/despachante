@@ -118,7 +118,7 @@ export default function CaixaPage() {
             </div>
             <div className="stat-card">
               <div className="stat-label">Saldo Atual</div>
-              <div className="stat-value" style={{color:'var(--accent)'}}>{fmt(saldoAtual)}</div>
+              <div className="stat-value" style={{color:'var(--accent)',fontSize:'clamp(18px,2vw,26px)',whiteSpace:'normal',overflowWrap:'anywhere',lineHeight:1.05}}>{fmt(saldoAtual)}</div>
               <div className="stat-delta negative">{fmt(totalSaidas)} em saídas</div>
             </div>
           </div>
@@ -248,6 +248,7 @@ export default function CaixaPage() {
 
 function AbrirModal({ onAbrir, onClose }) {
   const [valorInicial, setValorInicial] = useState('');
+  const [dataAbertura, setDataAbertura] = useState(new Date().toISOString().slice(0,10));
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal modal-sm" onClick={e=>e.stopPropagation()}>
@@ -261,9 +262,13 @@ function AbrirModal({ onAbrir, onClose }) {
             onChange={e=>setValorInicial(maskMoney(e.target.value))} placeholder="0,00"
             style={{fontFamily:'monospace',fontSize:16}}/>
         </div>
+        <div className="form-group" style={{marginTop:14}}>
+          <label className="form-label">Data de Abertura</label>
+          <input className="form-input" type="date" value={dataAbertura} onChange={e=>setDataAbertura(e.target.value)}/>
+        </div>
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>Cancelar</button>
-          <button className="btn btn-primary" onClick={()=>onAbrir({valor_inicial:parseMoney(valorInicial),usuario_nome:'Carlos Silva'})}>
+          <button className="btn btn-primary" onClick={()=>onAbrir({valor_inicial:parseMoney(valorInicial),data_abertura:dataAbertura,usuario_nome:'Carlos Silva'})}>
             <Icon name="check" size={14}/> Abrir Caixa
           </button>
         </div>

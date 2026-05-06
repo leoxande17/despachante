@@ -36,12 +36,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getClient: (id) => ipcRenderer.invoke('crm:getClient', id),
     createClient: (data) => ipcRenderer.invoke('crm:createClient', data),
     updateClient: (data) => ipcRenderer.invoke('crm:updateClient', data),
+    deleteClient: (id) => ipcRenderer.invoke('crm:deleteClient', id),
     search: (query) => ipcRenderer.invoke('crm:search', query),
   },
 
   // Processos
   processo: {
     list: (clienteId) => ipcRenderer.invoke('processo:list', clienteId),
+    listAll: (filters) => ipcRenderer.invoke('processo:listAll', filters),
     create: (data) => ipcRenderer.invoke('processo:create', data),
     update: (data) => ipcRenderer.invoke('processo:update', data),
   },
@@ -50,7 +52,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   docs: {
     upload: (data) => ipcRenderer.invoke('docs:upload', data),
     list: (processoId) => ipcRenderer.invoke('docs:list', processoId),
-    listByCliente: (clienteId) => ipcRenderer.invoke('docs:listByCliente', clienteId),
+    listByCliente: (clienteId, filters) => ipcRenderer.invoke('docs:listByCliente', clienteId, filters),
     delete: (id) => ipcRenderer.invoke('docs:delete', id),
     updateStatus: (data) => ipcRenderer.invoke('docs:updateStatus', data),
     open: (id) => ipcRenderer.invoke('docs:open', id),
@@ -108,6 +110,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     init: () => ipcRenderer.invoke('whatsapp:init'),
     sendMessage: (data) => ipcRenderer.invoke('whatsapp:sendMessage', data),
     getTemplates: () => ipcRenderer.invoke('whatsapp:getTemplates'),
+    createTemplate: (data) => ipcRenderer.invoke('whatsapp:createTemplate', data),
+    updateTemplate: (data) => ipcRenderer.invoke('whatsapp:updateTemplate', data),
+    deleteTemplate: (id) => ipcRenderer.invoke('whatsapp:deleteTemplate', id),
+    getFlows: () => ipcRenderer.invoke('whatsapp:getFlows'),
+    saveFlows: (flows) => ipcRenderer.invoke('whatsapp:saveFlows', flows),
     getStatus: () => ipcRenderer.invoke('whatsapp:getStatus'),
     disconnect: () => ipcRenderer.invoke('whatsapp:disconnect'),
     onQR: (callback) => ipcRenderer.on('whatsapp:qr', (_, qr) => callback(qr)),

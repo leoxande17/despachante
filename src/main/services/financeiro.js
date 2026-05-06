@@ -33,11 +33,14 @@ const FinanceiroService = {
 
   getContasPagar(filters = {}) {
     let sql = `
-      SELECT l.* FROM lancamentos l WHERE l.tipo = 'despesa'
+      SELECT l.*, c.nome as cliente_nome FROM lancamentos l
+      LEFT JOIN clientes c ON l.cliente_id = c.id
+      WHERE l.tipo = 'despesa'
     `;
     const params = [];
 
     if (filters.status) { sql += ' AND l.status = ?'; params.push(filters.status); }
+    if (filters.cliente_id) { sql += ' AND l.cliente_id = ?'; params.push(filters.cliente_id); }
 
     this.db().prepare(`
       UPDATE lancamentos SET status='atrasado'
@@ -50,27 +53,34 @@ const FinanceiroService = {
   },
 
   createLancamento(data) {
+    const valor = Number(data.valor || 0);
+    if (valor <= 0 || valor > 99999999.99) return { success: false, error: 'Valor inválido' };
+    if (!String(data.descricao || '').trim()) return { success: false, error: 'Descrição obrigatória' };
+
     const id = uuidv4();
     this.db().prepare(`
       INSERT INTO lancamentos (id, tipo, categoria, descricao, valor,
         data_vencimento, status, forma_pagamento, cliente_id, processo_id, observacoes)
       VALUES (?, ?, ?, ?, ?, ?, 'pendente', ?, ?, ?, ?)
     `).run(
-      id, data.tipo, data.categoria, data.descricao, data.valor,
+      id, data.tipo, data.categoria, String(data.descricao).slice(0, 120), valor,
       data.data_vencimento, data.forma_pagamento,
-      data.cliente_id, data.processo_id, data.observacoes
+      data.cliente_id || null, data.processo_id || null, String(data.observacoes || '').slice(0, 500) || null
     );
     return { success: true, id };
   },
 
   updateLancamento(data) {
+    const valor = Number(data.valor || 0);
+    if (valor <= 0 || valor > 99999999.99) return { success: false, error: 'Valor inválido' };
+
     this.db().prepare(`
       UPDATE lancamentos SET
         categoria=?, descricao=?, valor=?, data_vencimento=?,
         forma_pagamento=?, observacoes=?, atualizado_em=datetime('now')
       WHERE id=?
-    `).run(data.categoria, data.descricao, data.valor,
-      data.data_vencimento, data.forma_pagamento, data.observacoes, data.id);
+    `).run(data.categoria, String(data.descricao || '').slice(0, 120), valor,
+      data.data_vencimento, data.forma_pagamento || null, String(data.observacoes || '').slice(0, 500) || null, data.id);
     return { success: true };
   },
 

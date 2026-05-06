@@ -67,15 +67,30 @@ const DocumentosService = {
 
   list(processoId) {
     const docs = this.db().prepare(
-      'SELECT * FROM documentos WHERE processo_id=? ORDER BY criado_em DESC'
+      `SELECT d.*, c.nome as cliente_nome, p.numero as processo_numero
+       FROM documentos d
+       LEFT JOIN clientes c ON d.cliente_id = c.id
+       LEFT JOIN processos p ON d.processo_id = p.id
+       WHERE d.processo_id=? ORDER BY d.criado_em DESC`
     ).all(processoId);
     return { success: true, data: docs };
   },
 
-  listByCliente(clienteId) {
-    const docs = this.db().prepare(
-      'SELECT * FROM documentos WHERE cliente_id=? ORDER BY criado_em DESC'
-    ).all(clienteId);
+  listByCliente(clienteId, filters = {}) {
+    let sql = `
+      SELECT d.*, c.nome as cliente_nome, p.numero as processo_numero
+      FROM documentos d
+      LEFT JOIN clientes c ON d.cliente_id = c.id
+      LEFT JOIN processos p ON d.processo_id = p.id
+      WHERE d.cliente_id=?
+    `;
+    const params = [clienteId];
+    if (filters?.processo_id) {
+      sql += ' AND d.processo_id = ?';
+      params.push(filters.processo_id);
+    }
+    sql += ' ORDER BY d.criado_em DESC';
+    const docs = this.db().prepare(sql).all(...params);
     return { success: true, data: docs };
   },
 

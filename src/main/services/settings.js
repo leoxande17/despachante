@@ -49,7 +49,9 @@ const SettingsService = {
 
   set(key, value) {
     const data = readAll();
-    data[key] = { ...(data[key] || {}), ...(value || {}) };
+    data[key] = Array.isArray(value) || typeof value !== 'object' || value === null
+      ? value
+      : { ...(data[key] || {}), ...value };
     writeAll(data);
     return { success: true, data: data[key] };
   },

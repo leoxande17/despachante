@@ -14,28 +14,27 @@ const RelatoriosService = {
     const db = this.db();
 
     // Receita dos últimos 6 meses
-    const vendasMes = db.prepare(`
-      SELECT strftime('%m/%Y', data_pagamento) as mes,
+    const vendasRows = db.prepare(`
+      SELECT strftime('%Y-%m', data_pagamento) as chave,
              SUM(valor) as valor,
              COUNT(*) as qtd
       FROM lancamentos
       WHERE tipo='receita' AND status='pago'
         AND data_pagamento >= date('now', '-6 months')
-      GROUP BY strftime('%Y-%m', data_pagamento)
-      ORDER BY strftime('%Y-%m', data_pagamento) ASC
-    `).all().map(m => ({
-      mes: m.mes.split('/')[0].replace(/^0/, '') + ' / ' + m.mes.split('/')[1].slice(2),
-      valor: m.valor,
-      qtd: m.qtd
-    }));
+      GROUP BY chave
+      ORDER BY chave ASC
+    `).all();
 
     // Preenche meses faltantes
     const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
     const hoje = new Date();
-    const ultimos6 = Array.from({ length: 6 }, (_, i) => {
+    const vendasMap = new Map(vendasRows.map(r => [r.chave, r]));
+    const vendasMes = Array.from({ length: 6 }, (_, i) => {
       const d = new Date(hoje);
       d.setMonth(d.getMonth() - (5 - i));
-      return { mes: meses[d.getMonth()], valor: 0 };
+      const chave = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      const row = vendasMap.get(chave);
+      return { mes: meses[d.getMonth()], valor: row?.valor || 0, qtd: row?.qtd || 0 };
     });
 
     // Serviços mais vendidos
@@ -54,13 +53,18 @@ const RelatoriosService = {
     const totalLeads = db.prepare("SELECT COUNT(*) as c FROM leads").get().c;
     const fechados = db.prepare("SELECT COUNT(*) as c FROM leads WHERE etapa='fechado'").get().c;
     const taxa = totalLeads > 0 ? Math.round((fechados / totalLeads) * 100) : 0;
+    const etapas = db.prepare(`
+      SELECT etapa, COUNT(*) as total
+      FROM leads
+      GROUP BY etapa
+    `).all();
 
     return {
       success: true,
       data: {
-        vendasMes: vendasMes.length > 0 ? vendasMes : ultimos6,
+        vendasMes,
         servicosTop,
-        leadsConversao: { total: totalLeads, fechados, taxa }
+        leadsConversao: { total: totalLeads, fechados, taxa, etapas }
       }
     };
   },

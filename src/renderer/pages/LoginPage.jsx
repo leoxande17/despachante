@@ -4,7 +4,7 @@ import { api, useToast } from '../App';
 
 export default function LoginPage({ onLogin }) {
   const toast = useToast();
-  const [form, setForm] = useState({ email: 'admin@despachapr.com', senha: '' });
+  const [form, setForm] = useState({ email: '', senha: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -71,7 +71,7 @@ export default function LoginPage({ onLogin }) {
             <div className="form-group">
               <label className="form-label">E-mail</label>
               <input
-                className="form-input" type="email" autoFocus required
+                className="form-input" type="email" autoFocus required autoComplete="username"
                 value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
                 placeholder="seu@email.com"
                 style={{ fontSize: 14 }}
@@ -80,7 +80,7 @@ export default function LoginPage({ onLogin }) {
             <div className="form-group">
               <label className="form-label">Senha</label>
               <input
-                className="form-input" type="password" required
+                className="form-input" type="password" required autoComplete="current-password"
                 value={form.senha} onChange={e => setForm(f => ({ ...f, senha: e.target.value }))}
                 placeholder="••••••••"
                 style={{ fontSize: 14 }}

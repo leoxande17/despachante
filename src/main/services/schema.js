@@ -47,6 +47,18 @@ CREATE TABLE IF NOT EXISTS clientes (
   atualizado_em TEXT DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS cliente_veiculos (
+  id TEXT PRIMARY KEY,
+  cliente_id TEXT NOT NULL,
+  marca TEXT,
+  modelo TEXT,
+  placa TEXT,
+  renavam TEXT,
+  criado_em TEXT DEFAULT (datetime('now')),
+  atualizado_em TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (cliente_id) REFERENCES clientes(id)
+);
+
 CREATE TABLE IF NOT EXISTS leads (
   id TEXT PRIMARY KEY,
   nome TEXT NOT NULL,
@@ -307,6 +319,9 @@ CREATE INDEX IF NOT EXISTS idx_processos_status ON processos(status);
 CREATE INDEX IF NOT EXISTS idx_lancamentos_status ON lancamentos(status);
 CREATE INDEX IF NOT EXISTS idx_lancamentos_vencimento ON lancamentos(data_vencimento);
 CREATE INDEX IF NOT EXISTS idx_documentos_processo ON documentos(processo_id);
+CREATE INDEX IF NOT EXISTS idx_documentos_cliente ON documentos(cliente_id);
+CREATE INDEX IF NOT EXISTS idx_cliente_veiculos_cliente ON cliente_veiculos(cliente_id);
+CREATE INDEX IF NOT EXISTS idx_cliente_veiculos_placa ON cliente_veiculos(placa);
 CREATE INDEX IF NOT EXISTS idx_caixa_movimentos_caixa ON caixa_movimentos(caixa_id);
 CREATE INDEX IF NOT EXISTS idx_logs_criado ON logs_sistema(criado_em);
 CREATE INDEX IF NOT EXISTS idx_clientes_cpf ON clientes(cpf_cnpj);
