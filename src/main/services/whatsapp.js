@@ -3,6 +3,9 @@ const DatabaseService = require('./database');
 const LogService = require('./log');
 const SettingsService = require('./settings');
 const { v4: uuidv4 } = require('uuid');
+const { app } = require('electron');
+const path = require('path');
+const fs = require('fs');
 
 let whatsappStatus = 'disconnected';
 let _sock = null;
@@ -10,6 +13,12 @@ let mainWindowRef = null;
 
 const WhatsAppService = {
   db() { return DatabaseService.getDB(); },
+
+  getAuthDir() {
+    const dir = path.join(app.getPath('userData'), 'auth_info_baileys');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    return dir;
+  },
 
   async initialize(mainWindow) {
     mainWindowRef = mainWindow;
@@ -30,7 +39,7 @@ const WhatsAppService = {
       }
 
       const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = baileys;
-      const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
+      const { state, saveCreds } = await useMultiFileAuthState(this.getAuthDir());
 
       const sock = makeWASocket({ auth: state, printQRInTerminal: false });
 
