@@ -112,6 +112,7 @@ function setupIpcHandlers() {
   ipcMain.handle('crm:createClient', (_, data) => CRMService.createClient(data));
   ipcMain.handle('crm:updateClient', (_, data) => CRMService.updateClient(data));
   ipcMain.handle('crm:deleteClient', (_, id) => CRMService.deleteClient(id));
+  ipcMain.handle('crm:restoreClient', (_, id) => CRMService.restoreClient(id));
   ipcMain.handle('crm:search', (_, query) => CRMService.search(query));
 
   // Processos

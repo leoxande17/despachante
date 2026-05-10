@@ -37,6 +37,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     createClient: (data) => ipcRenderer.invoke('crm:createClient', data),
     updateClient: (data) => ipcRenderer.invoke('crm:updateClient', data),
     deleteClient: (id) => ipcRenderer.invoke('crm:deleteClient', id),
+    restoreClient: (id) => ipcRenderer.invoke('crm:restoreClient', id),
     search: (query) => ipcRenderer.invoke('crm:search', query),
   },
 

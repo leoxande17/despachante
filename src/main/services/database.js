@@ -5,6 +5,7 @@ const fs = require('fs');
 const { app } = require('electron');
 const CryptoJS = require('crypto-js');
 const { SCHEMA_SQL } = require('./schema');
+const { DEFAULT_SERVICOS } = require('./defaultServicos');
 
 const DB_VERSION = 1;
 const ENCRYPTION_KEY = 'despachapr_2024_secure_key_local';
@@ -111,6 +112,11 @@ const DatabaseService = {
       await this.migration_v2();
       db.prepare('INSERT INTO schema_version (version) VALUES (?)').run(2);
     }
+
+    if (currentVersion < 3) {
+      await this.migration_v3();
+      db.prepare('INSERT INTO schema_version (version) VALUES (?)').run(3);
+    }
   },
 
   async migration_v1() {
@@ -135,6 +141,22 @@ const DatabaseService = {
       CREATE INDEX IF NOT EXISTS idx_cliente_veiculos_placa ON cliente_veiculos(placa);
       CREATE INDEX IF NOT EXISTS idx_documentos_cliente ON documentos(cliente_id);
     `);
+  },
+
+  async migration_v3() {
+    this.ensureDefaultServicos();
+  },
+
+  ensureDefaultServicos() {
+    DEFAULT_SERVICOS.forEach(servico => {
+      const existing = db.prepare('SELECT id FROM servicos_catalogo WHERE lower(nome)=lower(?) LIMIT 1').get(servico.nome);
+      if (existing) return;
+
+      db.prepare(`
+        INSERT INTO servicos_catalogo (id, nome, valor_padrao, codigo_servico_nf, ativo)
+        VALUES (?, ?, ?, ?, 1)
+      `).run(servico.id, servico.nome, servico.valor_padrao, servico.codigo_servico_nf);
+    });
   },
 
   backup(outputPath) {

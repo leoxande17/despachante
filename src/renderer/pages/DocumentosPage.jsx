@@ -19,6 +19,46 @@ const STATUS_MAP = {
   rejeitado: { badge: 'badge-red',   label: 'Rejeitado' },
 };
 
+const DEFAULT_SERVICOS = [
+  { id: 'svc_transferencia_veiculo', nome: 'Transferência de Veículo', valor_padrao: 280 },
+  { id: 'svc_licenciamento_anual', nome: 'Licenciamento Anual', valor_padrao: 120 },
+  { id: 'svc_primeiro_emplacamento', nome: 'Primeiro Emplacamento', valor_padrao: 350 },
+  { id: 'svc_solicitacao_placa', nome: 'Solicitação de Placa', valor_padrao: 180 },
+  { id: 'svc_troca_endereco', nome: 'Troca de Endereço', valor_padrao: 90 },
+  { id: 'svc_preenchimento_recibo', nome: 'Preenchimento de Recibo', valor_padrao: 60 },
+  { id: 'svc_comunicacao_venda', nome: 'Comunicação de Venda', valor_padrao: 80 },
+  { id: 'svc_segunda_via_crv_crlv', nome: 'Segunda Via de CRV/CRLV', valor_padrao: 140 },
+  { id: 'svc_regularizacao_debitos', nome: 'Regularização de Débitos', valor_padrao: 200 },
+  { id: 'svc_alteracao_caracteristicas', nome: 'Alteração de Características', valor_padrao: 220 },
+  { id: 'svc_baixa_gravame', nome: 'Baixa de Gravame', valor_padrao: 130 },
+  { id: 'svc_vistoria_veicular', nome: 'Vistoria Veicular', valor_padrao: 150 },
+];
+
+const maskPlaca = value => {
+  const clean = String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7);
+  let letters = '';
+  let suffix = '';
+  for (const char of clean) {
+    if (letters.length < 3) {
+      if (/[A-Z]/.test(char)) letters += char;
+    } else if (suffix.length < 4 && /[A-Z0-9]/.test(char)) {
+      suffix += char;
+    }
+  }
+  return suffix ? `${letters}-${suffix}` : letters;
+};
+
+const formatCurrency = value => Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const maskCurrency = value => {
+  const digits = String(value || '').replace(/\D/g, '').slice(0, 8);
+  if (!digits) return '';
+  return formatCurrency(Math.min(Number(digits) / 100, 999999.99));
+};
+const parseCurrency = value => {
+  const digits = String(value || '').replace(/\D/g, '').slice(0, 8);
+  return Math.min((Number(digits) || 0) / 100, 999999.99);
+};
+
 export default function DocumentosPage() {
   const toast = useToast();
   const [clientes, setClientes]     = useState([]);
@@ -265,6 +305,7 @@ export default function DocumentosPage() {
 }
 
 function ProcessoModal({ clientes, servicos, clienteId, onSave, onClose }) {
+  const servicosDisponiveis = servicos?.length ? servicos : DEFAULT_SERVICOS;
   const [form, setForm] = useState({
     cliente_id: clienteId || '',
     servico_id: '',
@@ -276,10 +317,20 @@ function ProcessoModal({ clientes, servicos, clienteId, onSave, onClose }) {
   });
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
 
+  const handleServicoChange = id => {
+    const servico = servicosDisponiveis.find(s => s.id === id);
+    setForm(f => ({
+      ...f,
+      servico_id: id,
+      valor: servico?.valor_padrao ? formatCurrency(servico.valor_padrao) : f.valor,
+    }));
+  };
+
   const handleSubmit = e => {
     e.preventDefault();
     if(!form.cliente_id){ alert('Selecione um cliente'); return; }
-    onSave({...form, valor: parseFloat(String(form.valor).replace(/\./g,'').replace(',','.')) || 0});
+    if(!form.servico_id){ alert('Selecione um serviço'); return; }
+    onSave({...form, valor: parseCurrency(form.valor)});
   };
 
   return (
@@ -299,16 +350,16 @@ function ProcessoModal({ clientes, servicos, clienteId, onSave, onClose }) {
               </select>
             </div>
             <div className="form-group">
-              <label className="form-label">Serviço</label>
-              <select className="form-select" value={form.servico_id} onChange={e=>set('servico_id',e.target.value)}>
+              <label className="form-label">Serviço *</label>
+              <select className="form-select" required value={form.servico_id} onChange={e=>handleServicoChange(e.target.value)}>
                 <option value="">Selecione</option>
-                {servicos.map(s=><option key={s.id} value={s.id}>{s.nome}</option>)}
+                {servicosDisponiveis.map(s=><option key={s.id} value={s.id}>{s.nome}</option>)}
               </select>
             </div>
-            <div className="form-group"><label className="form-label">Placa</label><input className="form-input" value={form.veiculo_placa} maxLength={8} onChange={e=>set('veiculo_placa',e.target.value.toUpperCase())}/></div>
+            <div className="form-group"><label className="form-label">Placa</label><input className="form-input" value={form.veiculo_placa} maxLength={8} placeholder="ABC-1234" onChange={e=>set('veiculo_placa',maskPlaca(e.target.value))}/></div>
             <div className="form-group"><label className="form-label">Renavam</label><input className="form-input" value={form.veiculo_renavam} maxLength={11} onChange={e=>set('veiculo_renavam',e.target.value.replace(/\D/g,''))}/></div>
             <div className="form-group"><label className="form-label">Modelo</label><input className="form-input" value={form.veiculo_modelo} maxLength={60} onChange={e=>set('veiculo_modelo',e.target.value)}/></div>
-            <div className="form-group"><label className="form-label">Valor</label><input className="form-input" value={form.valor} maxLength={14} onChange={e=>set('valor',e.target.value.replace(/[^\d,.]/g,''))}/></div>
+            <div className="form-group"><label className="form-label">Valor</label><input className="form-input" value={form.valor} maxLength={13} inputMode="numeric" placeholder="R$ 0,00" onChange={e=>set('valor',maskCurrency(e.target.value))}/></div>
           </div>
           <div className="form-group" style={{marginTop:14}}>
             <label className="form-label">Descrição</label>

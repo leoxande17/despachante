@@ -6,6 +6,7 @@ const { app, shell } = require('electron');
 const axios = require('axios');
 const DatabaseService = require('./database');
 const LogService = require('./log');
+const { DEFAULT_SERVICOS } = require('./defaultServicos');
 
 const NotaFiscalService = {
   db() { return DatabaseService.getDB(); },
@@ -119,6 +120,7 @@ const NotaFiscalService = {
   },
 
   getServicos() {
+    this._ensureDefaultServicos();
     const servicos = this.db().prepare('SELECT * FROM servicos_catalogo WHERE ativo=1 ORDER BY nome').all();
     return { success: true, data: servicos };
   },
@@ -140,6 +142,18 @@ const NotaFiscalService = {
     let seq = 1;
     if (ultimo?.numero) seq = parseInt(ultimo.numero.split('-')[1] || '0') + 1;
     return `${ano}-${String(seq).padStart(5, '0')}`;
+  },
+
+  _ensureDefaultServicos() {
+    DEFAULT_SERVICOS.forEach(servico => {
+      const existing = this.db().prepare('SELECT id FROM servicos_catalogo WHERE lower(nome)=lower(?) LIMIT 1').get(servico.nome);
+      if (existing) return;
+
+      this.db().prepare(`
+        INSERT INTO servicos_catalogo (id, nome, valor_padrao, codigo_servico_nf, ativo)
+        VALUES (?, ?, ?, ?, 1)
+      `).run(servico.id, servico.nome, servico.valor_padrao, servico.codigo_servico_nf);
+    });
   }
 };
 

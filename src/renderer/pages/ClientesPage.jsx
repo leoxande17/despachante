@@ -27,6 +27,7 @@ export default function ClientesPage() {
   const [showUpload, setShowUpload] = useState(false);
   const [detailProcessoId, setDetailProcessoId] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [undoDelete, setUndoDelete] = useState(null);
 
   const load = useCallback((s='') => {
     setLoading(true);
@@ -34,6 +35,12 @@ export default function ClientesPage() {
   },[]);
 
   useEffect(()=>{ load(search); },[refreshKey]);
+
+  useEffect(() => {
+    return () => {
+      if (undoDelete?.timeoutId) clearTimeout(undoDelete.timeoutId);
+    };
+  }, [undoDelete]);
 
   const handleSearch = v => {
     setSearch(v);
@@ -64,12 +71,34 @@ export default function ClientesPage() {
 
   const handleDeleteCliente = async id => {
     if(!confirm('Excluir este cliente? Os lançamentos, processos e documentos vinculados serão preservados.')) return;
+    const deletedCliente = detailCliente;
     const r = await api.crm.deleteClient(id);
     if(r.success){
-      toast('Cliente excluído','info');
+      const timeoutId = window.setTimeout(() => setUndoDelete(null), 10000);
+      setUndoDelete(current => {
+        if (current?.timeoutId) clearTimeout(current.timeoutId);
+        return { cliente: deletedCliente, timeoutId };
+      });
+      toast('Cliente excluído. Você pode desfazer por alguns segundos.','info');
       setDetailCliente(null);
       setRefreshKey(k=>k+1);
     } else toast(r.error||'Erro ao excluir cliente','error');
+  };
+
+  const handleUndoDelete = async () => {
+    if (!undoDelete?.cliente) return;
+    clearTimeout(undoDelete.timeoutId);
+    const cliente = undoDelete.cliente;
+    const r = await api.crm.restoreClient(cliente.id);
+    if (r.success) {
+      setUndoDelete(null);
+      setRefreshKey(k=>k+1);
+      const detail = await api.crm.getClient(cliente.id);
+      if (detail.success) setDetailCliente(detail.data);
+      toast('Exclusão desfeita','success');
+    } else {
+      toast(r.error || 'Não foi possível desfazer','error');
+    }
   };
 
   const handleUpload = async data => {
@@ -138,6 +167,12 @@ export default function ClientesPage() {
       </div>
 
       {showModal&&<ClienteModal initial={editingCliente} onSave={handleSave} onClose={()=>{setShowModal(false);setEditingCliente(null);}}/>}
+      {undoDelete?.cliente&&(
+        <div style={{position:'fixed',right:24,bottom:24,zIndex:2100,display:'flex',alignItems:'center',gap:12,padding:'12px 14px',background:'var(--bg-surface)',border:'1px solid var(--bg-border)',borderRadius:'var(--radius-lg)',boxShadow:'var(--shadow-lg)'}}>
+          <div style={{fontSize:13,color:'var(--text-secondary)'}}>Cliente excluído: <strong style={{color:'var(--text-primary)'}}>{undoDelete.cliente.nome}</strong></div>
+          <button className="btn btn-primary btn-sm" onClick={handleUndoDelete}><Icon name="rotate-ccw" size={13}/> Desfazer</button>
+        </div>
+      )}
       {detailCliente&&(
         <ClienteDetail
           cliente={detailCliente}
@@ -302,6 +337,8 @@ function ClienteModal({ initial, onSave, onClose }) {
 }
 
 function ClienteDetail({ cliente, docs, onClose, onEdit, onDelete, onUploadDoc, onDocStatus, onDocDelete, selectedProcessoId, onSelectProcesso }) {
+  const [financeOpen, setFinanceOpen] = useState(false);
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal modal-xl" onClick={e=>e.stopPropagation()} style={{maxHeight:'90vh'}}>
@@ -354,9 +391,14 @@ function ClienteDetail({ cliente, docs, onClose, onEdit, onDelete, onUploadDoc, 
               </div>
             ))}
 
-            <div style={{fontSize:11,fontWeight:700,color:'var(--text-muted)',letterSpacing:1,marginTop:20,marginBottom:12}}>FINANCEIRO ({cliente.financeiro?.length||0})</div>
+            <button type="button" className="btn btn-ghost" style={{width:'100%',justifyContent:'space-between',marginTop:20,marginBottom:12,padding:'8px 0',fontSize:11,fontWeight:700,color:'var(--text-muted)',letterSpacing:1}} onClick={()=>setFinanceOpen(v=>!v)}>
+              <span>FINANCEIRO ({cliente.financeiro?.length||0})</span>
+              <Icon name={financeOpen?'chevronDown':'chevronRight'} size={14}/>
+            </button>
+            {financeOpen&&(
+              <div style={{maxHeight:260,overflowY:'auto',paddingRight:4}}>
             {(!cliente.financeiro||cliente.financeiro.length===0)&&<div style={{fontSize:12,color:'var(--text-muted)'}}>Nenhum lançamento vinculado</div>}
-            {(cliente.financeiro||[]).slice(0,6).map(l=>(
+            {(cliente.financeiro||[]).map(l=>(
               <div key={l.id} style={{padding:'8px 12px',background:'var(--bg-elevated)',borderRadius:'var(--radius)',marginBottom:6,fontSize:12,display:'flex',justifyContent:'space-between',gap:10}}>
                 <div>
                   <div style={{fontWeight:600}}>{l.descricao}</div>
@@ -367,6 +409,8 @@ function ClienteDetail({ cliente, docs, onClose, onEdit, onDelete, onUploadDoc, 
                 </div>
               </div>
             ))}
+              </div>
+            )}
           </div>
 
           {/* Documentos */}
@@ -395,6 +439,7 @@ function ClienteDetail({ cliente, docs, onClose, onEdit, onDelete, onUploadDoc, 
                       </div>
                     </div>
                     <div style={{display:'flex',gap:4,flexShrink:0}}>
+                      <button className="btn btn-secondary btn-sm" style={{padding:'3px 6px'}} onClick={()=>api.docs.open(doc.id)} title="Visualizar documento"><Icon name="eye" size={11}/></button>
                       {doc.status!=='aprovado'&&<button className="btn btn-sm" style={{background:'var(--green-dim)',color:'var(--green)',border:'1px solid rgba(34,197,94,0.2)',padding:'3px 6px'}} onClick={()=>onDocStatus(doc.id,'aprovado')}><Icon name="check" size={11}/></button>}
                       {doc.status!=='rejeitado'&&<button className="btn btn-danger btn-sm" style={{padding:'3px 6px'}} onClick={()=>onDocStatus(doc.id,'rejeitado')}><Icon name="x" size={11}/></button>}
                       <button className="btn btn-icon btn-ghost" style={{padding:4}} onClick={()=>onDocDelete(doc.id)}><Icon name="trash" size={12}/></button>

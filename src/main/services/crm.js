@@ -238,6 +238,17 @@ const CRMService = {
     return { success: true };
   },
 
+  restoreClient(id) {
+    const client = this.db().prepare('SELECT id FROM clientes WHERE id=?').get(id);
+    if (!client) return { success: false, error: 'Cliente não encontrado' };
+
+    this.db().prepare(`
+      UPDATE clientes SET ativo=1, atualizado_em=datetime('now') WHERE id=?
+    `).run(id);
+    LogService.info('Cliente restaurado', { id });
+    return { success: true };
+  },
+
   _replaceVeiculos(clienteId, veiculos = []) {
     this.db().prepare('DELETE FROM cliente_veiculos WHERE cliente_id=?').run(clienteId);
     veiculos
