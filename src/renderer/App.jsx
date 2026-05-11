@@ -175,11 +175,12 @@ function createMockAPI() {
       getInadimplentes:async()=>({success:true,data:lancamentos.filter(l=>l.tipo==='receita'&&l.status==='atrasado')}),
       createLancamento:async(d)=>{const n={id:genId(),criado_em:new Date().toISOString(),status:'pendente',...d};lancamentos=[...lancamentos,n];return{success:true,id:n.id};},
       updateLancamento:async(d)=>{lancamentos=lancamentos.map(l=>l.id===d.id?{...l,...d}:l);return{success:true};},
+      deleteLancamento:async(id)=>{lancamentos=lancamentos.filter(l=>l.id!==id);movimentos=movimentos.filter(m=>m.lancamento_id!==id);return{success:true};},
       registrarPagamento:async({id,forma_pagamento,data_pagamento})=>{
         lancamentos=lancamentos.map(l=>l.id===id?{...l,status:'pago',forma_pagamento,data_pagamento:data_pagamento||new Date().toISOString().slice(0,10)}:l);
         if(caixaAtual?.status==='aberto'){
           const lanc=lancamentos.find(l=>l.id===id);
-          if(lanc){const mv={id:genId(),caixa_id:caixaAtual.id,tipo:lanc.tipo==='receita'?'entrada':'saida',descricao:lanc.descricao,valor:lanc.valor,forma_pagamento,criado_em:new Date().toISOString()};movimentos=[...movimentos,mv];}
+          if(lanc){const mv={id:genId(),caixa_id:caixaAtual.id,tipo:lanc.tipo==='receita'?'entrada':'saida',descricao:lanc.descricao,valor:lanc.valor,forma_pagamento,lancamento_id:id,criado_em:new Date().toISOString()};movimentos=[...movimentos,mv];}
         }
         return{success:true};
       },

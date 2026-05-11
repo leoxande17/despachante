@@ -69,6 +69,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getContasPagar: (filters) => ipcRenderer.invoke('fin:getContasPagar', filters),
     createLancamento: (data) => ipcRenderer.invoke('fin:createLancamento', data),
     updateLancamento: (data) => ipcRenderer.invoke('fin:updateLancamento', data),
+    deleteLancamento: (id) => ipcRenderer.invoke('fin:deleteLancamento', id),
     registrarPagamento: (data) => ipcRenderer.invoke('fin:registrarPagamento', data),
     reverterPagamento: (id) => ipcRenderer.invoke('fin:reverterPagamento', id),
     getFluxoCaixa: (periodo) => ipcRenderer.invoke('fin:getFluxoCaixa', periodo),

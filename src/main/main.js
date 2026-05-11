@@ -155,6 +155,7 @@ function setupIpcHandlers() {
   ipcMain.handle('fin:getContasPagar', (_, filters) => FinanceiroService.getContasPagar(filters));
   ipcMain.handle('fin:createLancamento', (_, data) => FinanceiroService.createLancamento(data));
   ipcMain.handle('fin:updateLancamento', (_, data) => FinanceiroService.updateLancamento(data));
+  ipcMain.handle('fin:deleteLancamento', (_, id) => FinanceiroService.deleteLancamento(id));
   ipcMain.handle('fin:registrarPagamento', (_, data) => FinanceiroService.registrarPagamento(data));
   ipcMain.handle('fin:getFluxoCaixa', (_, periodo) => FinanceiroService.getFluxoCaixa(periodo));
   ipcMain.handle('fin:getInadimplentes', () => FinanceiroService.getInadimplentes());

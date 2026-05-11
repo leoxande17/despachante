@@ -84,6 +84,15 @@ const FinanceiroService = {
     return { success: true };
   },
 
+  deleteLancamento(id) {
+    const lancamento = this.db().prepare('SELECT id FROM lancamentos WHERE id=?').get(id);
+    if (!lancamento) return { success: false, error: 'Lançamento não encontrado' };
+
+    this.db().prepare('DELETE FROM caixa_movimentos WHERE lancamento_id = ?').run(id);
+    this.db().prepare('DELETE FROM lancamentos WHERE id = ?').run(id);
+    return { success: true };
+  },
+
   registrarPagamento({ id, forma_pagamento, data_pagamento, valor_pago }) {
     this.db().prepare(`
       UPDATE lancamentos SET

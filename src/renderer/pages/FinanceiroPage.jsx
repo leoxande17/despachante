@@ -74,6 +74,21 @@ export default function FinanceiroPage() {
     else toast(r.error||'Erro','error');
   };
 
+  const handleDelete = async lancamento => {
+    const extra = lancamento.status === 'pago'
+      ? '\n\nO movimento de caixa vinculado a este pagamento também será removido.'
+      : '';
+    if(!confirm(`Excluir este lançamento financeiro?${extra}`)) return;
+
+    try {
+      const r = await api.financeiro.deleteLancamento(lancamento.id);
+      if(r.success){ toast('Lançamento excluído!','success'); refresh(); }
+      else toast(r.error||'Erro ao excluir','error');
+    } catch (err) {
+      toast(err?.message || 'Erro ao excluir','error');
+    }
+  };
+
   return (
     <div>
       <div className="page-header">
@@ -161,6 +176,9 @@ export default function FinanceiroPage() {
                       )}
                       <button className="btn btn-icon btn-ghost" onClick={()=>{setEditingLanc(l);setShowModal(true);}}>
                         <Icon name="edit" size={14}/>
+                      </button>
+                      <button className="btn btn-icon btn-ghost" style={{color:'var(--red)'}} onClick={()=>handleDelete(l)}>
+                        <Icon name="trash" size={14}/>
                       </button>
                     </div>
                   </td>
